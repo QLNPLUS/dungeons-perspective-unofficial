@@ -25,7 +25,8 @@
     "KeyBindingMixin",
     "ClientPlayerEntityMixin",
     "BossBarHudMixin",
-    "compat.sodium.MixinBlockRenderer",
+    "compat.sodium.WorldSliceMixin",
+    "compat.sodium.ChunkBuilderMeshingTaskMixin",
     "compat.sodium.RenderSectionManagerMixin"
 
   ],

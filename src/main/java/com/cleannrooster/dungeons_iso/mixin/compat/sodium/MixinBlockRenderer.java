@@ -1,8 +1,5 @@
 package com.cleannrooster.dungeons_iso.mixin.compat.sodium;
 
-import com.cleannrooster.dungeons_iso.api.BlockCuller;
-import com.cleannrooster.dungeons_iso.api.MinecraftClientAccessor;
-import com.cleannrooster.dungeons_iso.api.cullers.FloodCuller;
 import com.cleannrooster.dungeons_iso.compat.SodiumCompat;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 
@@ -12,7 +9,6 @@ import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRende
 import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.Camera;
@@ -58,37 +54,8 @@ public abstract class MixinBlockRenderer  {
     @Inject(at = @At("HEAD"), method = "renderModel", cancellable = true,remap = false)
 
     public void renderModel(BlockRenderContext ctx, ChunkBuildBuffers buffers, CallbackInfo ci) {
-        if(Mod.enabled ) {
-            if (SodiumCompat.detector.shouldCull(ctx.pos(), MinecraftClient.getInstance().gameRenderer.getCamera(), MinecraftClient.getInstance().cameraEntity)) {
-                Mod.shouldReload = true;
-                if (!Mod.dirty) {
-                    Mod.startTime = MinecraftClient.getInstance().world.getTime();
-                }
-                Mod.dirtyTime = MinecraftClient.getInstance().world.getTime();
-
-                Mod.dirty = true;
-
-            } else {
-                if (!Mod.dirty) {
-                    Mod.shouldReload = false;
-                }
-            }
-
-
-            boolean bool = false;
-            for (BlockCuller culler : SodiumCompat.blockCullers) {
-                if(culler instanceof FloodCuller floodCuller &&((culler.shouldForceCull() && !bool) || (bool && culler.shouldForceNonCull()))){
-                    bool = floodCuller.isAboveFlood(ctx.pos(), MinecraftClient.getInstance().gameRenderer.getCamera(), MinecraftClient.getInstance().cameraEntity, SodiumCompat.stream.stream());
-                }
-                else if ((culler.shouldForceCull() && !bool) || (bool && culler.shouldForceNonCull())) {
-                    bool = culler.shouldCull(ctx.pos(), MinecraftClient.getInstance().gameRenderer.getCamera(), MinecraftClient.getInstance().cameraEntity);
-                }
-            }
-            if (bool) {
-
-                ci.cancel();
-                return;
-            }
+        if(Mod.enabled && SodiumCompat.shouldCull(ctx.pos(), ctx.state())) {
+            ci.cancel();
         }
 
     }

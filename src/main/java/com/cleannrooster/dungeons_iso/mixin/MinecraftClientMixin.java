@@ -114,6 +114,9 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         @Inject(method = "tick", at = @At("HEAD"))
     public void tickXIVHEAD(CallbackInfo ci) {
         MinecraftClient client = (MinecraftClient) (Object) this;
+        if (Mod.enabled && (client.player == null || client.world == null || client.cameraEntity == null)) {
+            SodiumCompat.stop();
+        }
         boolean spell = false;
             if(MinecraftClient.getInstance().player != null) {
                 for(int i = 0; i < 9; ++i) {
@@ -397,7 +400,10 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         // seem to break anything.
         //if (ClientInit.getInstance().getKeyBinding().wasPressed() || (this.options.togglePerspectiveKey.wasPressed
         // () && mod.isEnabled())) {
-        if(Mod.enabled && client.worldRenderer != null ){
+        // Embeddium owns its render-section rebuild queue. Scheduling every vanilla
+        // BuiltChunk here creates stale async results and can leave one section with
+        // a mesh compiled under an older culling state.
+        if(Mod.enabled && client.worldRenderer != null && !ModList.get().isLoaded("embeddium")){
             ((WorldRendererAccessor)client.worldRenderer).chunks().forEach(builtChunk -> {{
                 builtChunk.scheduleRebuild(true);
             }});
@@ -408,6 +414,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         )) {
             if (!Config.GSON.instance().force && Mod.enabled) {
                 Mod.enabled = false;
+                SodiumCompat.stop();
 
                 client.options.setPerspective(Mod.lastPerspective);
                 Util.debug("Disabled Minecraft XIV");

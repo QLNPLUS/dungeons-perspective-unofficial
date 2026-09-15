@@ -12,6 +12,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.block.BlockState;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -83,7 +84,8 @@ public class GenericCuller3 implements BlockCuller {
 
     public boolean shouldCull(BlockPos blockPos, Camera camera, Entity cameraEntity){
         try {
-            if (((MinecraftClientAccessor) MinecraftClient.getInstance()).shouldRebuild() && camera != null && cameraEntity != null) {
+            if (((MinecraftClientAccessor) MinecraftClient.getInstance()).shouldRebuild()
+                    && camera != null && cameraEntity != null) {
 
                 var posBehindPlayerUp = cameraEntity.getEyePos().subtract(getRotationVec(cameraEntity, MinecraftClient.getInstance().getTickDelta()).multiply(-4)).add(0, blockPos.getY() - cameraEntity.getEyeY(), 0);
                 var vec7 = (blockPos.toCenterPos().subtract(camera.getPos()).normalize());
@@ -95,16 +97,18 @@ public class GenericCuller3 implements BlockCuller {
                 var theta = angleBetween(vec8, vec7);
                 var phi = angleBetween(vec1, vec2);
                 var chi = angleBetween(vec6, new Vec3d(0, 1, 0));
-                var factor = 0.05 * (Math.min(20, Math.min(cameraEntity.getWorld().getTime() - Mod.startTime, Mod.endTime))) * 45 * Math.pow(0.9, Mod.zoom);
-                var factor2 = 0.05 * (Math.min(20, Math.min(cameraEntity.getWorld().getTime() - Mod.startTime, Mod.endTime))) * 45 * Math.pow(0.9, Mod.zoom);
+                long elapsedTicks = Math.max(0L, cameraEntity.getWorld().getTime() - Mod.startTime);
+                long transitionTicks = Math.min(20L, Math.min(elapsedTicks, Math.max(0L, Mod.endTime)));
+                var factor = 0.05 * transitionTicks * 45 * Math.pow(0.9, Mod.zoom);
 
-                if (!isIgnoredType(cameraEntity.getWorld().getBlockState(blockPos).getBlock()) && blockPos.toCenterPos().getY() > cameraEntity.getPos().getY() + 1 &&
-                        (((theta < factor && chi < 60 && phi < 45)) || (camera.getPos().distanceTo(blockPos.toCenterPos()) < 5))) {
-                    return true;
-                } else {
-                    return false;
-
-                }
+                // A distance-only fallback removed nearby blocks even when they were
+                // outside the camera-facing culling wedge. That was especially visible
+                // in underground rooms where the camera sits close to the ceiling.
+                return !isIgnoredType(cameraEntity.getWorld().getBlockState(blockPos).getBlock())
+                        && blockPos.toCenterPos().getY() > cameraEntity.getPos().getY() + 1
+                        && theta < factor
+                        && chi < 60
+                        && phi < 45;
             } else {
                 return false;
             }
@@ -114,6 +118,32 @@ public class GenericCuller3 implements BlockCuller {
         }
         return false;
 
+    }
+
+    public boolean shouldCull(BlockPos blockPos, BlockState blockState, SodiumCompat.CullingSnapshot snapshot) {
+        if (snapshot == null) {
+            return false;
+        }
+
+        Vec3d cameraPos = snapshot.cameraPos;
+        Vec3d entityPos = snapshot.entityPos;
+        var vec7 = blockPos.toCenterPos().subtract(cameraPos).normalize();
+        var vec8 = entityPos.subtract(cameraPos).normalize();
+        var vec1 = blockPos.toCenterPos().subtract(entityPos).normalize();
+        var vec6 = blockPos.toCenterPos().subtract(entityPos).normalize();
+        var vec2 = cameraPos.subtract(entityPos).normalize();
+        var theta = angleBetween(vec8, vec7);
+        var phi = angleBetween(vec1, vec2);
+        var chi = angleBetween(vec6, new Vec3d(0, 1, 0));
+        long elapsedTicks = Math.max(0L, snapshot.worldTime - snapshot.startTime);
+        long transitionTicks = Math.min(20L, Math.min(elapsedTicks, Math.max(0L, snapshot.endTime)));
+        var factor = 0.05 * transitionTicks * 45 * Math.pow(0.9, snapshot.zoom);
+
+        return !isIgnoredType(blockState.getBlock())
+                && blockPos.toCenterPos().getY() > entityPos.getY() + 1
+                && theta < factor
+                && chi < 60
+                && phi < 45;
     }
     private static <T, C> T raycast(Vec3d start, Vec3d end, C context, BiFunction<C, BlockPos, T> blockHitFactory, Function<C, T> missFactory) {
         if (start.equals(end)) {

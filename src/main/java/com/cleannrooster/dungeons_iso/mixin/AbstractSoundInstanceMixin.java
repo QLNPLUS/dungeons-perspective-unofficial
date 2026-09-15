@@ -44,8 +44,10 @@ public class AbstractSoundInstanceMixin {
     public void getVolumeCleann(CallbackInfoReturnable<Float> cir) {
         AbstractSoundInstance instance = (AbstractSoundInstance) (Object) this;
 
-        if(!this.f_119578_ && MinecraftClient.getInstance().gameRenderer != null && MinecraftClient.getInstance().gameRenderer.getCamera() != null && Mod.enabled && cir.getReturnValue() != null){
-            cir.setReturnValue((float) (cir.getReturnValue()*(1+Mod.zoom)*Math.max(0,1-MinecraftClient.getInstance().player.getPos().distanceTo(new Vec3d(instance.getX(),instance.getY(),instance.getZ()))/16F)));
+        MinecraftClient client = MinecraftClient.getInstance();
+        if(!this.f_119578_ && client.player != null && client.gameRenderer != null
+                && client.gameRenderer.getCamera() != null && Mod.enabled && cir.getReturnValue() != null){
+            cir.setReturnValue((float) (cir.getReturnValue()*(1+Mod.zoom)*Math.max(0,1-client.player.getPos().distanceTo(new Vec3d(instance.getX(),instance.getY(),instance.getZ()))/16F)));
 
         }
     }

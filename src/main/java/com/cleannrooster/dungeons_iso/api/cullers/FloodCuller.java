@@ -20,6 +20,7 @@ import java.util.Stack;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 
 public class FloodCuller implements BlockCuller {
     public Stream<BlockPos> culledBlocks = Stream.empty();
@@ -201,5 +202,16 @@ public class FloodCuller implements BlockCuller {
     }
     public boolean isAboveFlood(BlockPos  blockPos, Camera camera, Entity cameraEntity , Stream<BlockPos> stream) {
         return stream.anyMatch(pos ->{ return blockPos.getX() == pos.getX() && blockPos.getY() > pos.getY() && blockPos.getZ() == pos.getZ();});
+    }
+
+    public boolean isAboveFlood(BlockPos blockPos, Stream<BlockPos> stream) {
+        return stream.anyMatch(pos -> blockPos.getX() == pos.getX()
+                && blockPos.getY() > pos.getY()
+                && blockPos.getZ() == pos.getZ());
+    }
+
+    public boolean isAboveFlood(int x, int y, int z, Long2IntOpenHashMap columnMinY) {
+        int minY = columnMinY.get(((long) x << 32) ^ (z & 0xffffffffL));
+        return minY != Integer.MAX_VALUE && y > minY;
     }
 }
