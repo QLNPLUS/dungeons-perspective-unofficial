@@ -1,3 +1,4 @@
+# Builds the tagged Forge artifact and publishes it to CurseForge.
 name: Publish to CurseForge
 
 on:
