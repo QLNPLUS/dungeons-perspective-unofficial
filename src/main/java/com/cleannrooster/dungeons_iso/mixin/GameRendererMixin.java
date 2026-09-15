@@ -1,7 +1,6 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.Ortho;
-import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 import net.minecraft.block.Block;
@@ -64,9 +63,9 @@ public abstract class GameRendererMixin {
             ),
             index = 7
     )
-    private Matrix4f orthoProjMat(Matrix4f projMat, @Local(argsOnly = true) float tickDelta) {
+    private Matrix4f orthoProjMat(Matrix4f projMat) {
         if (Config.GSON.instance().ortho && Mod.enabled) {
-            Matrix4f mat = Ortho.createOrthoMatrix(tickDelta, 0.0F);
+            Matrix4f mat = Ortho.createOrthoMatrix(MinecraftClient.getInstance().getTickDelta(), 0.0F);
             RenderSystem.setProjectionMatrix(mat, VertexSorter.BY_Z);
             return mat;
         }

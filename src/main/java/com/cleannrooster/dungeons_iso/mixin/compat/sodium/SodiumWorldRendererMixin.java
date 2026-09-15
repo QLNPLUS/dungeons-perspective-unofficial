@@ -2,7 +2,6 @@ package com.cleannrooster.dungeons_iso.mixin.compat.sodium;
 
 import com.cleannrooster.dungeons_iso.compat.SodiumWorldRendererAccessor;
 import com.cleannrooster.dungeons_iso.mod.Mod;
-import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer;

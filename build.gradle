@@ -32,10 +32,12 @@ repositories {
         }
     }
 
-    maven {
-        name = 'Sinytra'
-        url = 'https://maven.su5ed.dev/releases'
-    }
+}
+
+def embeddiumJar = file(project.findProperty('embeddium_jar') ?: 'D:/Minecraft/versions/Last One/mods/[C][优化]embeddium-0.3.31+mc1.20.1.jar')
+def hasEmbeddium = embeddiumJar.exists()
+if (!hasEmbeddium) {
+    throw new GradleException("Embeddium 0.3.31+ for Minecraft 1.20.1 is required to build. Set -Pembeddium_jar to its JAR path.")
 }
 
 dependencies {
@@ -43,24 +45,16 @@ dependencies {
     mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
     forge "net.minecraftforge:forge:${forge_version}"
 
-    // Forgified Fabric API provides the Fabric renderer and networking APIs on Forge.
-    def ffapiJar = project.findProperty('ffapi_jar')?.toString()
-    def ffapiLibsDir = project.findProperty('ffapi_libs_dir')?.toString()
-    if (ffapiLibsDir && file(ffapiLibsDir).exists()) {
-        modCompileOnly files(fileTree(dir: ffapiLibsDir, includes: ['*.jar']))
-    } else if (ffapiJar && file(ffapiJar).exists()) {
-        modCompileOnly files(ffapiJar)
-    } else {
-        modImplementation "dev.su5ed.sinytra.fabric-api:fabric-api:${ffapi_version}"
-        modCompileOnly "io.github.llamalad7:mixinextras-common:0.4.1"
-    }
-
     // Development-only renderer target. The final mod does not package Embeddium.
-    def embeddiumJar = file(project.findProperty('embeddium_jar') ?: 'D:/Minecraft/versions/Last One/mods/[C][优化]embeddium-0.3.31+mc1.20.1.jar')
-    if (embeddiumJar.exists()) {
-        modCompileOnly files(embeddiumJar)
-        modRuntimeOnly files(embeddiumJar)
-    }
+    modImplementation files(embeddiumJar)
+}
+
+tasks.register('copyEmbeddiumToRunMods', Copy) {
+    from embeddiumJar
+    into layout.projectDirectory.dir('run/mods')
+}
+tasks.named('runClient') {
+    dependsOn tasks.named('copyEmbeddiumToRunMods')
 }
 
 processResources {
@@ -70,7 +64,6 @@ processResources {
     filesMatching("META-INF/mods.toml") {
         expand version: project.version, forge_version: forge_version
     }
-    exclude 'fabric.mod.json'
 }
 
 def targetJavaVersion = 17

@@ -1,11 +1,11 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-license = "MIT"
+license = "AGPL-3.0"
 
 [[mods]]
 modId = "dungeons_iso"
 version = "1.7.1"
-displayName = "Dungeons Perspective"
+displayName = "Dungeons Perspective Unofficial"
 authors = "cleannrooster/Forg"
 description = '''
 Changes Minecraft's perspective to be more like Minecraft Dungeons.
@@ -26,8 +26,8 @@ ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.dungeons_iso]]
-modId = "fabric_api"
+modId = "embeddium"
 mandatory = true
-versionRange = "[0.92.6,)"
+versionRange = "[0.3.31,)"
 ordering = "AFTER"
-side = "BOTH"
+side = "CLIENT"

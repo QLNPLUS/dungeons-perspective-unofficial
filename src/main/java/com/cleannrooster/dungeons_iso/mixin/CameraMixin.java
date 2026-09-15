@@ -23,10 +23,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArgs;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import com.cleannrooster.dungeons_iso.ClientInit;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 
@@ -77,27 +76,41 @@ public abstract class CameraMixin implements CameraAccessor {
     @Shadow(remap = false)
     protected abstract void m_90572_(float yaw, float pitch);
 
-    @ModifyArgs(
+    @ModifyArg(
             method = "update",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0)
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0),
+            index = 0
     )
-    public void a(Args args) {
+    public float modifyCameraYaw(float yaw) {
         if (Mod.enabled) {
             // Advance zoom once per camera update, rather than once per clipToSpace call.
             Mod.updateZoom();
-            args.set(0,Mod.yaw);
+            return Mod.yaw;
+        }
+        return yaw;
+    }
+
+    @ModifyArg(
+            method = "update",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0),
+            index = 1
+    )
+    public float modifyCameraPitch(float pitch) {
+        if (Mod.enabled) {
             // Camera#getPitch is forced to 45 degrees, so the actual rotation must
             // use the same fixed pitch before the camera quaternion is built.
             Mod.pitch = 45.0F;
-            args.set(1, 45.0F);
+            return 45.0F;
         }
+        return pitch;
     }
 
-    @ModifyArgs(
+    @ModifyArg(
             method = "update",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(D)D", ordinal = 0)
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(D)D", ordinal = 0),
+            index = 0
     )
-    public void b(Args args) {
+    public double modifyCameraDistance(double distance) {
         if (Mod.enabled) {
             if(ClientInit.isoBinding.wasPressed()){
                 this.m_90572_((float) (Math.ceil(Mod.yaw / 90) * 90 - 45),45);
@@ -114,9 +127,10 @@ public abstract class CameraMixin implements CameraAccessor {
                 }
 
             }
-            Mod.zoomMetric = args.get(0);
-                args.set(0, (double) args.get(0) * MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F)*Mod.zoom);
+            Mod.zoomMetric = distance;
+            return distance * MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F) * Mod.zoom;
         }
+        return distance;
     }
     @Inject(
             method = "clipToSpace",

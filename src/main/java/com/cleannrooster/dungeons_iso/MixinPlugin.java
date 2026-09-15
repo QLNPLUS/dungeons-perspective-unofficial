@@ -31,7 +31,11 @@ public class MixinPlugin  implements IMixinConfigPlugin {
                     } else if (modId.equals("combat_roll")) {
                         modId = "combatroll";
                     }
-                    return ModList.get().isLoaded(modId);
+                    if (modId.equals("embeddium")) {
+                        return true;
+                    }
+                    ModList modList = ModList.get();
+                    return modList != null && modList.isLoaded(modId);
                 }
             }
             // This means there was a failure in parsing the mod id

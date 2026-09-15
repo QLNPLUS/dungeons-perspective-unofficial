@@ -1,7 +1,6 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.*;
-import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.DoorBlock;
 import net.minecraft.block.TrapdoorBlock;
@@ -147,7 +146,7 @@ public class MouseMixin implements MouseAccessor {
             at = @At(value = "INVOKE", target = "net/minecraft/client/tutorial/TutorialManager.onUpdateMouse(DD)V")
     )
     private void updateMouseAXIV(
-            CallbackInfo ci, @Local(ordinal = 1) double i, @Local(ordinal = 2) double j, @Local int k
+            CallbackInfo ci
     ) {
         this.client = this.f_91503_;
         GameRenderer renderer = client.gameRenderer;
@@ -187,7 +186,8 @@ public class MouseMixin implements MouseAccessor {
                             lastY = f_91508_;
                         }
                         if(lastY != null) {
-                            Mod.horizontalTarget = new BlockHitResult(Mod.lastVertical.getPos().add(0, ((-(f_91508_ - lastY) * k) / 40), 0), Mod.lastVertical.getSide(), BlockPos.ofFloored(Mod.lastVertical.getPos().add(0, ((-(f_91508_ - lastY) * k) / 40), 0)), true);
+                            int invertY = client.options.getInvertYMouse().getValue() ? -1 : 1;
+                            Mod.horizontalTarget = new BlockHitResult(Mod.lastVertical.getPos().add(0, ((-(f_91508_ - lastY) * invertY) / 40), 0), Mod.lastVertical.getSide(), BlockPos.ofFloored(Mod.lastVertical.getPos().add(0, ((-(f_91508_ - lastY) * invertY) / 40), 0)), true);
 
                         }
 

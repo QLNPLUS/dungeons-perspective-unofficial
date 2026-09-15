@@ -39,6 +39,7 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.event.BlockPositionSource;
 import net.minecraft.world.gen.chunk.DebugChunkGenerator;
+import net.minecraftforge.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -140,7 +141,9 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             Mod.x = MathHelper.clamp(Mod.x,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5);
             Mod.z = MathHelper.clamp(Mod.z,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5);
 
-                    SodiumCompat.run();
+                    if (ModList.get().isLoaded("embeddium")) {
+                        SodiumCompat.run();
+                    }
 
 
 

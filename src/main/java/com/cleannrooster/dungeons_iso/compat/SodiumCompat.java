@@ -5,7 +5,6 @@ import com.cleannrooster.dungeons_iso.api.cullers.BlockDetector;
 import com.cleannrooster.dungeons_iso.api.cullers.FloodCuller;
 import com.cleannrooster.dungeons_iso.api.cullers.GenericCuller3;
 import com.cleannrooster.dungeons_iso.api.cullers.GenericBlockCuller2;
-import me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -34,7 +33,7 @@ public class SodiumCompat {
         }
         double dub = 1*MinecraftClient.getInstance().player.getPos().distanceTo(MinecraftClient.getInstance().gameRenderer.getCamera().getPos());
         box.stretch(dub,dub,dub);
-            SodiumWorldRenderer.instance().scheduleRebuildForBlockArea((int) box.minX, (int) box.minY, (int) box.minZ, (int) box.maxX, (int) box.maxY, (int) box.maxZ, true);
+            scheduleRebuildForBlockArea(box);
 
 /*        if(MinecraftClient.getInstance() != null  && Mod.enabled && ((MinecraftClientAccessor)MinecraftClient.getInstance()).shouldRebuild()) {
             if (MinecraftClient.getInstance().cameraEntity != null && MinecraftClient.getInstance().gameRenderer.getCamera() instanceof Camera camera) {
@@ -77,6 +76,23 @@ public class SodiumCompat {
             }
 
 
+        }
+    }
+
+    private static void scheduleRebuildForBlockArea(Box box) {
+        try {
+            Class<?> rendererClass = Class.forName("me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer");
+            Object renderer = rendererClass.getMethod("instance").invoke(null);
+            rendererClass.getMethod(
+                    "scheduleRebuildForBlockArea",
+                    int.class, int.class, int.class, int.class, int.class, int.class, boolean.class
+            ).invoke(
+                    renderer,
+                    (int) box.minX, (int) box.minY, (int) box.minZ,
+                    (int) box.maxX, (int) box.maxY, (int) box.maxZ, true
+            );
+        } catch (ReflectiveOperationException | SecurityException | LinkageError ignored) {
+            // Keep the call isolated so a diagnostic build without the local Embeddium JAR can still compile.
         }
     }
 }
