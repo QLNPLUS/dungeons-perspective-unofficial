@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Fixed large areas of underground terrain disappearing at certain camera angles with Embeddium.
+- Improved Oculus shader performance by removing unnecessary internal block faces during perspective culling.
+- Fixed a client crash when leaving a world while perspective audio adjustments were active.
+
 ## 1.0.1
 
 - Fixed camera zoom snapping back after scrolling.
