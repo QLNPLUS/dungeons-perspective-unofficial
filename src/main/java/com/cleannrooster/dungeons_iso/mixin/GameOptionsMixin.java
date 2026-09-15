@@ -75,7 +75,11 @@ public class GameOptionsMixin {
     )
     public void getFovCleann(CallbackInfoReturnable<SimpleOption<Integer>> option) {
         if(Mod.enabled){
-            fov30.setValue(Config.GSON.instance ().ortho  ? 50 : (int) (90 * (1 - 0.5 * Mod.zoom / 5)));
+            // Zoom is applied to the camera distance. Changing FOV from the same
+            // value creates a second, opposite zoom path and causes visible snap-back.
+            fov30.setValue(Config.GSON.instance().ortho
+                    ? 50
+                    : MathHelper.clamp(Math.round(Config.GSON.instance().fov), 45, 90));
             option.setReturnValue(fov30);
         }
     }

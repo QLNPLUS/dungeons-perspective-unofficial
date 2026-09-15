@@ -35,25 +35,15 @@ public class Mod {
     }
 
     public static float zoom = 5.0F;
-    public static float zoomTarget = zoom;
-
-    private static final float ZOOM_SMOOTHING = 0.22F;
 
     public static float minimumZoom() {
         return 0.5F / MathHelper.clamp(Config.GSON.instance().zoomFactor, 1F, 1.5F);
     }
 
     public static void adjustZoom(float amount, float maximum) {
-        zoomTarget = MathHelper.clamp(zoomTarget + amount, minimumZoom(), maximum);
-    }
-
-    public static void updateZoom() {
-        float difference = zoomTarget - zoom;
-        if (Math.abs(difference) < 0.001F) {
-            zoom = zoomTarget;
-        } else {
-            zoom += difference * ZOOM_SMOOTHING;
-        }
+        // Apply input directly so one scroll event cannot leave a delayed target
+        // that visually pulls the camera back after the input has finished.
+        zoom = MathHelper.clamp(zoom + amount, minimumZoom(), maximum);
     }
 
     public static boolean enabled = false;

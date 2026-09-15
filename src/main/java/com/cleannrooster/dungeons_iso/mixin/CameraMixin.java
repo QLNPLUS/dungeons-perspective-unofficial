@@ -83,8 +83,6 @@ public abstract class CameraMixin implements CameraAccessor {
     )
     public float modifyCameraYaw(float yaw) {
         if (Mod.enabled) {
-            // Advance zoom once per camera update, rather than once per clipToSpace call.
-            Mod.updateZoom();
             return Mod.yaw;
         }
         return yaw;
