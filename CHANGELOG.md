@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.1
+## 1.0.0
 
 - Initial unofficial Forge 1.20.1 port of Dungeons Perspective.
 - Added Embeddium renderer compatibility.
