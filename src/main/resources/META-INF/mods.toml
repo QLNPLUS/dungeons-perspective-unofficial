@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-license = "AGPL-3.0"
+license = "MIT"
 
 [[mods]]
 modId = "dungeons_iso"
