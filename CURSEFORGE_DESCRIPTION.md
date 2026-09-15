@@ -2,6 +2,13 @@
 
 **Dungeons Perspective Unofficial** is an unofficial Forge 1.20.1 port of the original **Dungeons Perspective** mod. It changes Minecraft's camera perspective to feel closer to Minecraft Dungeons while keeping the original project's core idea and controls.
 
+## Original Project
+
+This project is an unofficial port and is not affiliated with the original author. Please visit the original project for its official releases, support, and latest versions:
+
+- [Original CurseForge project](https://www.curseforge.com/minecraft/mc-mods/dungeons-perspective)
+- [Original GitHub repository](https://github.com/cleannrooster/dungeons-perspective)
+
 ## Features
 
 - Isometric-style camera perspective
