@@ -1,7 +1,6 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.ClientInit;
-import com.cleannrooster.dungeons_iso.api.cullers.room.GhostRenderer;
 import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 import net.minecraft.block.BlockState;
@@ -35,10 +34,6 @@ public abstract class DebugRendererMixin {
         MinecraftClient client = MinecraftClient.getInstance();
         GameRenderer gameRenderer = client.gameRenderer;
         Camera camera = gameRenderer.getCamera();
-        try {
-            GhostRenderer.render(matrices, buffers, camera, gameRenderer);
-        } catch (Exception ignored) {
-        }
         if (!Mod.enabled || !Config.GSON.instance().isContextualInteract()) {
             return;
         }

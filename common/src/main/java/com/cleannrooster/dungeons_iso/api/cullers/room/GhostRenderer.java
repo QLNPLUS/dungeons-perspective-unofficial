@@ -487,7 +487,9 @@ public final class GhostRenderer {
         final double scale;
 
         Projector(Camera camera, GameRenderer gameRenderer) {
-            Vector3d f = camera.getRotation().transform(new Vector3d(0.0, 0.0, -1.0));
+            // Camera's view direction is the rotated +Z axis in Minecraft 1.20.1. A -Z basis
+            // makes every point in front of the camera look behind it and disables the ghost pass.
+            Vector3d f = camera.getRotation().transform(new Vector3d(0.0, 0.0, 1.0));
             Vector3d r = camera.getRotation().transform(new Vector3d(1.0, 0.0, 0.0));
             Vector3d u = camera.getRotation().transform(new Vector3d(0.0, 1.0, 0.0));
             this.forward = new Vec3d(f.x, f.y, f.z);
