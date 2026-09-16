@@ -41,7 +41,7 @@ public class GenericCuller3 implements BlockCuller {
     }
 
     public final Vec3d getRotationVec(Entity entity, float tickDelta) {
-        return entity.getRotationVector(entity.getPitch(tickDelta), entity.getHeadYaw());
+        return entity.getRotationVec(tickDelta);
     }
 
     /**
@@ -167,7 +167,7 @@ public class GenericCuller3 implements BlockCuller {
 
         Vec3d blockCenter = blockPos.toCenterPos();
         if (cameraEntity instanceof PlayerEntity player
-                && blockCenter.distanceTo(cameraEntity.getEyePos()) > player.getBlockInteractionRange()
+                && blockCenter.distanceTo(cameraEntity.getEyePos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player)
                 && blockCenter.getY() > cameraEntity.getY() + 1) {
             return UP.dotProduct(blockCenter.subtract(cameraEntity.getPos()).normalize()) > 0.5F;
         }
@@ -175,9 +175,7 @@ public class GenericCuller3 implements BlockCuller {
     }
 
     public boolean isIgnoredType(Block block) {
-        return block instanceof VaultBlock
-                || block instanceof SpawnerBlock
-                || block instanceof TrialSpawnerBlock
+        return block instanceof SpawnerBlock
                 || block instanceof WallMountedBlock
                 || block instanceof LadderBlock
                 || block instanceof DoorBlock;

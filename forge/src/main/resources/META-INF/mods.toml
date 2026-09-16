@@ -1,0 +1,30 @@
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "MIT"
+
+[[mods]]
+modId = "dungeons_iso"
+version = "${version}"
+displayName = "Dungeons Perspective"
+authors = "cleannrooster/Forg"
+description = '''
+Changes Minecraft's perspective to be more like Minecraft Dungeons.
+'''
+logoFile = "assets/dungeons_iso/icon.png"
+
+[[dependencies.dungeons_iso]]
+modId = "forge"
+mandatory = true
+versionRange = "[47.2,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.dungeons_iso]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20.1,1.20.2)"
+ordering = "NONE"
+side = "BOTH"
+
+[[mixins]]
+config = "dungeons_iso.mixins.json"

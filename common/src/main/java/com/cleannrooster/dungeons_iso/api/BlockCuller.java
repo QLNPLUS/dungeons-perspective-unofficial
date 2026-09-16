@@ -17,7 +17,7 @@ public interface BlockCuller {
         double lenSq = a.lengthSquared() * b.lengthSquared();
         if (lenSq == 0) return 0;
         double cosineTheta = dot / Math.sqrt(lenSq);
-        double angle = Math.acos(Math.clamp(cosineTheta, -1.0, 1.0)) * 57.29577951308232;
+        double angle = Math.acos(net.minecraft.util.math.MathHelper.clamp(cosineTheta, -1.0, 1.0)) * 57.29577951308232;
         return Double.isNaN(angle) ? 0.0 : angle;
     }
 
@@ -55,11 +55,11 @@ public interface BlockCuller {
         public void tickOpacity(){
 
             this.transparency = this.transparency- transparencyAdd();
-            this.transparency =Math.clamp(this.transparency,0F,1F);
+            this.transparency =net.minecraft.util.math.MathHelper.clamp(this.transparency,0F,1F);
         }
         public void tickTransparency(){
             this.transparency = this.transparency+transparencyAdd();
-            this.transparency = Math.clamp(this.transparency,0F,1F);
+            this.transparency = net.minecraft.util.math.MathHelper.clamp(this.transparency,0F,1F);
 
         }
         public float transparencyAdd(){

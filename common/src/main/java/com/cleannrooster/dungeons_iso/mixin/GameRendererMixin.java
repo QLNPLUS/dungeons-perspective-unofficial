@@ -83,15 +83,15 @@ public abstract class GameRendererMixin {
             float mod = 1;
             float mod2 = 1;
             if(MinecraftClient.getInstance().cameraEntity instanceof LivingEntity living){
-                mod = (float) living.getBoundingBox().getLengthY();
-                mod2 = (float) living.getBoundingBox().getLengthY();
+                mod = (float) living.getBoundingBox().getYLength();
+                mod2 = (float) living.getBoundingBox().getYLength();
 
             }
             HitResult result = MinecraftClient.getInstance().player.getWorld().raycast(
                     new RaycastContext(
                             MinecraftClient.getInstance().player.getEyePos(),MinecraftClient.getInstance().gameRenderer.getCamera().getPos(), RaycastContext.ShapeType.VISUAL, RaycastContext.FluidHandling.NONE,MinecraftClient.getInstance().cameraEntity));
             Mod.factor = Math.max(0F,( 1F-Math.max(Mod.zoomTime , 0F)))*(float) ((float) Mod.getZoom()*Mod.zoomMetric - Math.max(MinecraftClient.getInstance().cameraEntity.getHeight(),result.getPos().distanceTo(MinecraftClient.getInstance().cameraEntity.getEyePos())));
-            Mod.factor2 = Math.clamp((Mod.frustrumZoom+(Mod.shouldReload ?1F : -1F )*MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta())/20F,0.1F,1F) *(float) ((float) Mod.getZoom()*Mod.zoomMetric-Mod.clipMetric -0.15F );
+            Mod.factor2 = net.minecraft.util.math.MathHelper.clamp((Mod.frustrumZoom+(Mod.shouldReload ?1F : -1F )*com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta())/20F,0.1F,1F) *(float) ((float) Mod.getZoom()*Mod.zoomMetric-Mod.clipMetric -0.15F );
 
             // clipMetric is zero while the first world frame is being prepared. JOML accepts a
             // zero near plane, but the resulting projection has an invalid frustum. Vanilla then
@@ -132,7 +132,7 @@ public abstract class GameRendererMixin {
     )
     private Matrix4f orthoProjMat(Matrix4f projMat, @Local(argsOnly = true) RenderTickCounter tickCounter) {
         if (Config.GSON.instance().ortho && Mod.enabled) {
-            Matrix4f mat = Ortho.createOrthoMatrix(tickCounter.getTickDelta(false), 0.0F);
+            Matrix4f mat = Ortho.createOrthoMatrix(com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta(), 0.0F);
             RenderSystem.setProjectionMatrix(mat, VertexSorter.BY_Z);
             return mat;
         }
@@ -143,7 +143,7 @@ public abstract class GameRendererMixin {
     /**
      * Decouple interaction targeting from the view vector.
      *
-     * updateCrosshairTarget writes MinecraftClient#crosshairTarget and #targetedEntity from the
+     * updateTargetedEntity writes MinecraftClient#crosshairTarget and #targetedEntity from the
      * camera entity's rotation. In this mod the player's rotation is a cosmetic "look at" driven by
      * the mouse target, so we overwrite the pick result at TAIL with the mouse target
      * ({@link Mod#crosshairTarget}) directly. Placement, mining, use and attack then land exactly
@@ -160,7 +160,7 @@ public abstract class GameRendererMixin {
      *  - Line of sight is a COLLIDER raycast from the eye to the hit point; a non-solid interactable
      *    (lever, button, plant) is never treated as its own occluder, so it stays usable.
      */
-    @Inject(method = "updateCrosshairTarget", at = @At("TAIL"))
+    @Inject(method = "updateTargetedEntity", at = @At("TAIL"))
     private void decoupleHitResultXIV(float tickDelta, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (!Mod.enabled || client.player == null || client.world == null) {
@@ -176,7 +176,7 @@ public abstract class GameRendererMixin {
         if (Config.GSON.instance().isContextualTargeting()
                 && Mod.targeted instanceof LivingEntity contextTarget && contextTarget.isAlive()) {
             EntityHitResult contextHit = new EntityHitResult(contextTarget, contextTarget.getEyePos());
-            if (client.player.canInteractWithEntity(contextTarget, 0.0)
+            if (com.cleannrooster.dungeons_iso.util.VanillaCompat.canInteractWithEntity(client.player, contextTarget, 0.0)
                     && !isOccludedFromEye(client, playerEye, contextHit.getPos(), null)) {
                 client.crosshairTarget = contextHit;
                 client.targetedEntity = contextTarget;
@@ -192,7 +192,7 @@ public abstract class GameRendererMixin {
         if (target instanceof EntityHitResult entityHit) {
             // canInteractWithEntity measures to the entity's bounding box (geometry-aware), honoring
             // getEntityInteractionRange().
-            if (client.player.canInteractWithEntity(entityHit.getEntity(), 0.0)
+            if (com.cleannrooster.dungeons_iso.util.VanillaCompat.canInteractWithEntity(client.player, entityHit.getEntity(), 0.0)
                     && !isOccludedFromEye(client, eye, entityHit.getPos(), null)) {
                 client.crosshairTarget = target;
                 client.targetedEntity = entityHit.getEntity();
@@ -201,7 +201,7 @@ public abstract class GameRendererMixin {
         } else if (target instanceof BlockHitResult blockHit && blockHit.getType() == HitResult.Type.BLOCK) {
             // canInteractWithBlockAt measures to the block's box (geometry-aware), honoring
             // getBlockInteractionRange().
-            if (client.player.canInteractWithBlockAt(blockHit.getBlockPos(), 0.0)
+            if (com.cleannrooster.dungeons_iso.util.VanillaCompat.canInteractWithBlock(client.player, blockHit.getBlockPos(), 0.0)
                     && !isOccludedFromEye(client, eye, blockHit.getPos(), blockHit.getBlockPos())) {
                 client.crosshairTarget = target;
                 client.targetedEntity = null;

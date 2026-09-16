@@ -30,8 +30,8 @@ public class RollManagerMixin {
 
     public void onRollCleann(ClientPlayerEntity player, CallbackInfo info) {
         if(Mod.enabled && Mod.mouseTarget != null && Config.GSON.instance().isRollTowardsCursor()){
-            var speed = player.getMovement().length();
-            var vec = player.getMovement();
+            var speed = player.getVelocity().length();
+            var vec = player.getVelocity();
             var vec2 = Mod.mouseTarget.getPos().subtract(player.getPos());
             player.setVelocity(vec2.subtract(0,vec2.getY(),0).normalize().multiply(speed));
         }

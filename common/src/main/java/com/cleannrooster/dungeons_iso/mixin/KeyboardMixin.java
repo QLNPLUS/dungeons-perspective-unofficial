@@ -11,13 +11,13 @@ import com.cleannrooster.dungeons_iso.mod.Mod;
 public class KeyboardMixin {
     @Redirect(
             method = "onKey",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;openGameMenu(Z)V")
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;openPauseMenu(Z)V")
     )
-    void openGameMenuXIV(MinecraftClient instance, boolean pauseOnly) {
+    void openPauseMenuXIV(MinecraftClient instance, boolean pauseOnly) {
         if (Mod.lockOnTarget != null) {
             Mod.lockOnTarget = null;
         } else {
-            instance.openGameMenu(pauseOnly);
+            instance.openPauseMenu(pauseOnly);
         }
     }
 }

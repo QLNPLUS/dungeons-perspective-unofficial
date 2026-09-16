@@ -222,7 +222,7 @@ public class MouseMixin implements MouseAccessor {
         Mouse mouse = client.mouse;
 
         Camera camera = renderer.getCamera();
-        float tickDelta = camera.getLastTickDelta();
+        float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
         Entity cameraEntity = client.cameraEntity;
 
         if (Mod.enabled && cameraEntity != null && client.player != null) {
@@ -263,7 +263,7 @@ public class MouseMixin implements MouseAccessor {
                 if (!Config.GSON.instance().XIV) {
                     Mod.pitch = 45;
                     Mod.zoom += zoom;
-                    Mod.zoom = Math.clamp(Mod.zoom, 1F, 10F);
+                    Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom, 1F, 10F);
                 } else {
                     Mod.pitch = Mod.pitch + zoom * 45F;
                     Mod.pitch = MathHelper.clamp(Mod.pitch, 15F, 90F);
@@ -387,7 +387,7 @@ public class MouseMixin implements MouseAccessor {
                 if (!(hitResult instanceof EntityHitResult result && result.getType().equals(HitResult.Type.ENTITY))) {
                     if (!(hitResult2 instanceof EntityHitResult result2 && result2.getType().equals(HitResult.Type.ENTITY))) {
                         hitResult = scanDown;
-                        if (cameraEntity instanceof PlayerEntity player && hitResult.getPos().distanceTo(cameraEntity.getEyePos()) > player.getBlockInteractionRange() && cameraEntity.getWorld().getBlockEntity(BlockPos.ofFloored(hitResult.getPos())) == null
+                        if (cameraEntity instanceof PlayerEntity player && hitResult.getPos().distanceTo(cameraEntity.getEyePos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player) && cameraEntity.getWorld().getBlockEntity(BlockPos.ofFloored(hitResult.getPos())) == null
                                 && !(cameraEntity.getWorld().getBlockState(BlockPos.ofFloored(hitResult.getPos())).getBlock() instanceof WallMountedBlock)
                                 && !(cameraEntity.getWorld().getBlockState(BlockPos.ofFloored(hitResult.getPos())).getBlock() instanceof DoorBlock)
                                 && !(cameraEntity.getWorld().getBlockState(BlockPos.ofFloored(hitResult.getPos())).getBlock() instanceof TrapdoorBlock)) {
@@ -546,7 +546,7 @@ public class MouseMixin implements MouseAccessor {
             if (Mod.enabled && Config.GSON.instance().scrollWheelZoom ) {
 
 
-                Mod.zoom = (Math.clamp(Mod.zoom - (float) scrollAmount * 0.2f,2F/Math.clamp(Config.GSON.instance().zoomFactor,1F,1.5F),10.0F));
+                Mod.zoom = (net.minecraft.util.math.MathHelper.clamp(Mod.zoom - (float) scrollAmount * 0.2f,2F/net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F),10.0F));
 
             } else {
 

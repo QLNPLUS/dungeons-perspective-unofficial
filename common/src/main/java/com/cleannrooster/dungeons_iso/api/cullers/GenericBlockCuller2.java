@@ -55,7 +55,7 @@ public class GenericBlockCuller2 implements BlockCuller {
         Vec3d vec2 = entityPos.subtract(cameraPos);
 
         if (cameraEntity instanceof PlayerEntity player) {
-            vec1 = vec1.add(player.getMovement().normalize().multiply(2));
+            vec1 = vec1.add(player.getVelocity().normalize().multiply(2));
         }
 
         double calc_theta = BlockCuller.angleBetween(vec2, vec1);
@@ -70,7 +70,7 @@ public class GenericBlockCuller2 implements BlockCuller {
 
         Vec3d blockCenter = blockPos.toCenterPos();
         if (cameraEntity instanceof PlayerEntity player
-                && blockCenter.distanceTo(cameraEntity.getEyePos()) > player.getBlockInteractionRange()
+                && blockCenter.distanceTo(cameraEntity.getEyePos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player)
                 && blockCenter.getY() > cameraEntity.getY() + 1) {
             return UP.dotProduct(blockCenter.subtract(cameraEntity.getPos()).normalize()) > 0.5F;
         }

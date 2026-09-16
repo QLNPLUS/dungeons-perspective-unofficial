@@ -118,13 +118,13 @@ public final class ContextualTargeting {
         double coneDeg;
         switch (combatMode) {
             case MELEE -> {
-                range = player.getEntityInteractionRange() + MELEE_RANGE_BONUS;
+                range = com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(player) + MELEE_RANGE_BONUS;
                 angularWeight = MELEE_ANGULAR_WEIGHT;
                 distanceWeight = MELEE_DISTANCE_WEIGHT;
                 coneDeg = MELEE_CONE_DEG;
             }
             case INTERACT -> {
-                range = player.getEntityInteractionRange() + INTERACT_RANGE_BONUS;
+                range = com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(player) + INTERACT_RANGE_BONUS;
                 angularWeight = INTERACT_ANGULAR_WEIGHT;
                 distanceWeight = INTERACT_DISTANCE_WEIGHT;
                 coneDeg = INTERACT_CONE_DEG;

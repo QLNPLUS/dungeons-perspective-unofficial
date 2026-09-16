@@ -71,12 +71,12 @@ public class Mod {
         if (MinecraftClient.getInstance().world != null) {
 
             if (bool) {
-                modifier = (Math.min(2F, ((float) 1F + ((DragonCompat.bool ? (float) (Math.max(0F, (float) MinecraftClient.getInstance().world.getTime() - (float) Mod.dragonTimeSince + MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta())) : Math.max(0F, 20F - (float) MinecraftClient.getInstance().world.getTime() + (float) Mod.dragonTime + MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta()))) / 20F)))  * Math.clamp(Config.GSON.instance().zoomFactor, 1F, 1.5F) * Mod.zoom;
+                modifier = (Math.min(2F, ((float) 1F + ((DragonCompat.bool ? (float) (Math.max(0F, (float) MinecraftClient.getInstance().world.getTime() - (float) Mod.dragonTimeSince + com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta())) : Math.max(0F, 20F - (float) MinecraftClient.getInstance().world.getTime() + (float) Mod.dragonTime + com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta()))) / 20F)))  * net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor, 1F, 1.5F) * Mod.zoom;
 
             } else {
 
                 if (Config.GSON.instance().clipToSpace) {
-                    modifier = (Math.min(2F, ((float) 1F + ((DragonCompat.bool ? (float) (Math.max(0F, (float) MinecraftClient.getInstance().world.getTime() - (float) Mod.dragonTimeSince + MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta())) : Math.max(0F, 20F - (float) MinecraftClient.getInstance().world.getTime() + (float) Mod.dragonTime + MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta()))) / 20F))) * Math.clamp(Config.GSON.instance().zoomFactor, 1F, 1.5F) * Mod.zoom;
+                    modifier = (Math.min(2F, ((float) 1F + ((DragonCompat.bool ? (float) (Math.max(0F, (float) MinecraftClient.getInstance().world.getTime() - (float) Mod.dragonTimeSince + com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta())) : Math.max(0F, 20F - (float) MinecraftClient.getInstance().world.getTime() + (float) Mod.dragonTime + com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta()))) / 20F))) * net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor, 1F, 1.5F) * Mod.zoom;
 
                 } else {
                     modifier =  Mod.zoom;
@@ -85,13 +85,13 @@ public class Mod {
             }
 
             if (MinecraftClient.getInstance().cameraEntity instanceof LivingEntity living) {
-                modifier *= living.getScale();
+                modifier *= living.getScaleFactor();
             }
         }
         if(Objects.isNull(hit) || !Config.GSON.instance().clipToSpace) {
             return modifier;
         }
-        return (float) Math.max(0.5F*modifier*((Math.clamp((Mod.clipMetric+(Mod.notmoving ? 0 :  Mod.forward ? 0.4F: -1.0F)*MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta()),16,32))/(32)),2F);
+        return (float) Math.max(0.5F*modifier*((net.minecraft.util.math.MathHelper.clamp((Mod.clipMetric+(Mod.notmoving ? 0 :  Mod.forward ? 0.4F: -1.0F)*com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta()),16,32))/(32)),2F);
     }
 
     public static float zoom = 5.0F;
@@ -163,7 +163,7 @@ public class Mod {
                 || MinecraftClient.getInstance().world.getBlockState(pos).getBlock() instanceof CandleCakeBlock
 
         ) && MinecraftClient.getInstance().player.getPos().distanceTo(pos.toCenterPos())<
-                MinecraftClient.getInstance().player.getBlockInteractionRange()));
+                com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(MinecraftClient.getInstance().player)));
     }
     public static boolean isInteractable(BlockPos result){
         return (((MinecraftClient.getInstance().world.getBlockEntity(result)) != null ||
@@ -195,7 +195,7 @@ public class Mod {
                 || MinecraftClient.getInstance().world.getBlockState(result).getBlock() instanceof CandleCakeBlock
 
         ) && MinecraftClient.getInstance().player.getPos().distanceTo(result.toCenterPos())<
-                MinecraftClient.getInstance().player.getBlockInteractionRange());
+                com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(MinecraftClient.getInstance().player));
     }
     public static int frustrumZoom;
     public static int cooldown;

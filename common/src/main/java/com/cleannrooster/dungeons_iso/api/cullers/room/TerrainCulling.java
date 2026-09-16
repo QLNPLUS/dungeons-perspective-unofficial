@@ -9,8 +9,6 @@ import net.minecraft.block.DoorBlock;
 import net.minecraft.block.LadderBlock;
 import net.minecraft.block.SnowBlock;
 import net.minecraft.block.SpawnerBlock;
-import net.minecraft.block.TrialSpawnerBlock;
-import net.minecraft.block.VaultBlock;
 import net.minecraft.block.VineBlock;
 import net.minecraft.block.WallMountedBlock;
 import net.minecraft.state.property.Properties;
@@ -74,9 +72,7 @@ public final class TerrainCulling {
      * hanging in mid-air on their own.
      */
     public static boolean isProtected(Block block) {
-        return block instanceof VaultBlock
-                || block instanceof SpawnerBlock
-                || block instanceof TrialSpawnerBlock
+        return block instanceof SpawnerBlock
                 || block instanceof WallMountedBlock
                 || block instanceof DoorBlock;
     }

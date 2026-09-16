@@ -32,7 +32,7 @@ public class InGameHudMixin {
     )
     public void renderDarkness(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         if(Mod.enabled && ((client.getCameraEntity() instanceof LivingEntity living && living.hasStatusEffect(DARKNESS)) || Config.GSON.instance().fogOfWar) && fogOfWar != null) {
-            fogOfWar.render(context,tickCounter.getTickDelta(false));
+            fogOfWar.render(context,com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta());
         }
     }
 

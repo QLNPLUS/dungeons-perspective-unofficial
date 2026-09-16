@@ -66,7 +66,7 @@ public class GenericBlockCuller implements BlockCuller {
 
         Vec3d blockCenter = blockPos.toCenterPos();
         if (cameraEntity instanceof net.minecraft.entity.player.PlayerEntity player
-                && blockCenter.distanceTo(cameraEntity.getEyePos()) > player.getBlockInteractionRange()
+                && blockCenter.distanceTo(cameraEntity.getEyePos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player)
                 && blockCenter.getY() > cameraEntity.getY() + 1) {
             return UP.dotProduct(blockCenter.subtract(cameraEntity.getPos()).normalize()) > 0.5F;
         }

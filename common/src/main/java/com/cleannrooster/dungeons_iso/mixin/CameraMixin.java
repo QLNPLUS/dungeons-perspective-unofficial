@@ -179,7 +179,7 @@ public abstract class CameraMixin implements CameraAccessor {
                 Mod.zoomTimeNoDelay =  ((1000F - (System.currentTimeMillis() -  Mod.startZoom))/1000F)-(10-zoomOutTimeNoDelay)/10F;
 
             }
-            frustrumZoom = Math.clamp(frustrumZoom,0,20);
+            frustrumZoom = net.minecraft.util.math.MathHelper.clamp(frustrumZoom,0,20);
 
             zoomMetric = args.get(0);
             args.set(0, (float) args.get(0) * getZoom());
@@ -205,7 +205,7 @@ public abstract class CameraMixin implements CameraAccessor {
     )
     private void clipToSpaceXIV(float a, CallbackInfoReturnable<Float> callbackInfoReturnable) {
 
-        if (MinecraftClient.getInstance().gameRenderer.getCamera() instanceof Camera camera && Mod.enabled ) {
+        if (MinecraftClient.getInstance().gameRenderer.getCamera() != null && Mod.enabled ) {
 
                 callbackInfoReturnable.setReturnValue(a);
 
@@ -222,9 +222,9 @@ public abstract class CameraMixin implements CameraAccessor {
 
                 MinecraftClient client = MinecraftClient.getInstance();
                 assert client.player != null;
-                float tickDelta = client.gameRenderer.getCamera().getLastTickDelta();
+                float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
 
-                Vec3d movement = client.player.getMovement().subtract(0,client.player.getMovement().getY(),0).multiply(5.5).multiply(1+2*Mod.zoom);
+                Vec3d movement = client.player.getVelocity().subtract(0,client.player.getVelocity().getY(),0).multiply(5.5).multiply(1+2*Mod.zoom);
 
                 if(f.getVehicle() != null){
                    movement = client.player.getVehicle().getVelocity().subtract(0,client.player.getVehicle().getVelocity().getY(),0).multiply(5.5).multiply(2*Mod.zoom);

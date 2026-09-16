@@ -158,7 +158,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             spell = SpellEngineCompat.isCasting();
         }
         boolean isController = false;
-        Mod.zoom = Math.clamp(Mod.zoom,1F,10F);
+        Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom,1F,10F);
 
         if (ModCompat.isModLoaded("midnightcontrols")) {
             isController = MidnightControlsCompat.isEnabled();
@@ -185,19 +185,19 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
             double x = ((Mod.crosshairTarget != null ? Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).getX():0));
             double y = ((Mod.crosshairTarget != null ? Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).getZ():0));
-            if((Mod.crosshairTarget != null && Mod.crosshairTarget.getPos().distanceTo(client.cameraEntity.getPos()) > client.player.getBlockInteractionRange()) ||
-                    (Mod.crosshairTarget != null && Mod.crosshairTarget.getPos().distanceTo(client.cameraEntity.getPos()) > client.player.getEntityInteractionRange())) {
+            if((Mod.crosshairTarget != null && Mod.crosshairTarget.getPos().distanceTo(client.cameraEntity.getPos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(client.player)) ||
+                    (Mod.crosshairTarget != null && Mod.crosshairTarget.getPos().distanceTo(client.cameraEntity.getPos()) > com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(client.player))) {
 
-                Mod.x += MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta() * 0.10 * Mod.zoom * 1.5 * new Vec3d(x, 0, y).normalize().x;
-                Mod.z += MinecraftClient.getInstance().gameRenderer.getCamera().getLastTickDelta() * 0.10 * Mod.zoom * 1.5 * new Vec3d(x, 0, y).normalize().z;
+                Mod.x += com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta() * 0.10 * Mod.zoom * 1.5 * new Vec3d(x, 0, y).normalize().x;
+                Mod.z += com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta() * 0.10 * Mod.zoom * 1.5 * new Vec3d(x, 0, y).normalize().z;
             }
             if(Mod.crosshairTarget != null) {
-                Mod.x = Math.clamp(Mod.x, -Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getX()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength(), Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getX()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength());
-                Mod.z = Math.clamp(Mod.z, -Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getZ()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength(), Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getZ()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength());
+                Mod.x = net.minecraft.util.math.MathHelper.clamp(Mod.x, -Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getX()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength(), Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getX()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength());
+                Mod.z = net.minecraft.util.math.MathHelper.clamp(Mod.z, -Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getZ()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength(), Math.abs(new Vec3d(Mod.x, 0, Mod.z).normalize().getZ()) * Mod.crosshairTarget.getPos().subtract(client.cameraEntity.getPos()).horizontalLength());
 
             }
-            Mod.x = Math.clamp(Mod.x,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5);
-            Mod.z = Math.clamp(Mod.z,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5);
+            Mod.x = net.minecraft.util.math.MathHelper.clamp(Mod.x,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getX())*Mod.zoom*1.5);
+            Mod.z = net.minecraft.util.math.MathHelper.clamp(Mod.z,-Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5,Math.abs(new Vec3d(Mod.x,0,Mod.z).normalize().getZ())*Mod.zoom*1.5);
 
             SodiumCompat.run();
 
@@ -256,7 +256,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                     }
 
                 }
-                else if (   (Mod.crosshairTarget instanceof EntityHitResult hit && hit.getPos().distanceTo(player.getEyePos()) <= player.getEntityInteractionRange()/2) ){
+                else if (   (Mod.crosshairTarget instanceof EntityHitResult hit && hit.getPos().distanceTo(player.getEyePos()) <= com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(player)/2) ){
                     Hand[] var1 = Hand.values();
                     for (Hand hand : var1) {
                         var interact = client.interactionManager.interactEntity(player, hit.getEntity(), hand);
@@ -319,7 +319,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                 mouseCooldown =  40+(int)(0.2F*20F/client.player.getAttributeValue(EntityAttributes.GENERIC_ATTACK_SPEED));
             }
             if (client.player.getMainHandStack().getItem() instanceof RangedWeaponItem ||
-                    client.player.getMainHandStack().getItem() instanceof ProjectileItem ||
+                    com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem()) ||
                     client.player.getMainHandStack().getItem() instanceof BowItem ||
                     client.player.getMainHandStack().getItem() instanceof CrossbowItem ||
                     client.player.isUsingItem()  ||
@@ -331,7 +331,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             }
             boolean bool2 = false;
             if (client.player.getMainHandStack().getItem() instanceof RangedWeaponItem ||
-                    client.player.getMainHandStack().getItem() instanceof ProjectileItem ||
+                    com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem()) ||
                     client.player.getMainHandStack().getItem() instanceof BowItem ||
                     client.player.getMainHandStack().getItem() instanceof CrossbowItem
             ){
@@ -346,7 +346,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             if (Config.GSON.instance().isContextualTargeting()) {
                 boolean rangedMode =
                         client.player.getMainHandStack().getItem() instanceof RangedWeaponItem ||
-                        client.player.getMainHandStack().getItem() instanceof ProjectileItem ||
+                        com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem()) ||
                         client.player.getMainHandStack().getItem() instanceof BowItem ||
                         client.player.getMainHandStack().getItem() instanceof CrossbowItem ||
                         client.player.isUsingItem() ||
@@ -400,7 +400,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             // movement stick and has no meaningful cursor. Combat-target facing still takes priority.
             boolean rangedHeld =
                     client.player.getMainHandStack().getItem() instanceof RangedWeaponItem // bows, crossbows
-                    || client.player.getMainHandStack().getItem() instanceof ProjectileItem  // snowballs, eggs, pearls, potions
+                    || com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem())  // snowballs, eggs, pearls, potions
                     || client.player.getMainHandStack().getItem() instanceof TridentItem;
             boolean cursorAimException = (rangedHeld || spell)
                     && (!Config.GSON.instance().isContextualTargeting()
@@ -443,7 +443,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                                 lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, client.player.getEyePos().add(vec3d.normalize()), true);
                             }
                         } else {
-                            // Use current raw WASD keys + current Mod.yaw instead of player.getMovement()
+                            // Use current raw WASD keys + current Mod.yaw instead of player.getVelocity()
                             // (physics velocity). getMovement() lags by one tick and rotates with the camera
                             // each tick during middle-click drag, causing the player yaw to jitter as it
                             // tries to track a direction that changes every frame.
@@ -482,7 +482,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                     }
                     GameRenderer renderer = client.gameRenderer;
                     Camera camera = renderer.getCamera();
-                    float tickDelta = camera.getLastTickDelta();
+                    float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
 
                     if (Mod.crosshairTarget != null) {
 
@@ -679,7 +679,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         // it is in reach — vanilla entity interaction, no walking, no custom packets.
         if (Mod.targeted instanceof LivingEntity entity
                 && ContextualTargeting.isInteractableEntity(entity)
-                && client.player.canInteractWithEntity(entity, 0.0)) {
+                && com.cleannrooster.dungeons_iso.util.VanillaCompat.canInteractWithEntity(client.player, entity, 0.0)) {
             for (Hand hand : Hand.values()) {
                 var result = client.interactionManager.interactEntity(client.player, entity, hand);
                 if (result.isAccepted()) {
@@ -868,7 +868,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                 client.setScreen(firstTime);
             }
         }
-        Mod.zoom = Math.clamp(Mod.zoom,1F,10F);
+        Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom,1F,10F);
 
         boolean isController = false;
 
@@ -916,13 +916,13 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
         if (ClientInit.zoomInBinding.wasPressed()) {
             if (Mod.enabled) {
-                Mod.zoom = Math.clamp(Mod.zoom - 0.2f, 2F/Math.clamp(Config.GSON.instance().zoomFactor,1F,1.5F),10.0F);
+                Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom - 0.2f, 2F/net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F),10.0F);
             }
         }
 
         if (ClientInit.zoomOutBinding.wasPressed()) {
             if (Mod.enabled) {
-                Mod.zoom = Math.clamp(Mod.zoom + 0.2f,2F/Math.clamp(Config.GSON.instance().zoomFactor,1F,1.5F), 10.0F);
+                Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom + 0.2f,2F/net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F), 10.0F);
             }
         }
 
@@ -950,14 +950,14 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             }
             boolean bool2 = false;
             if (client.player.getMainHandStack().getItem() instanceof RangedWeaponItem ||
-                    client.player.getMainHandStack().getItem() instanceof ProjectileItem ||
+                    com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem()) ||
                     client.player.getMainHandStack().getItem() instanceof BowItem ||
                     client.player.getMainHandStack().getItem() instanceof CrossbowItem
             ){
                 bool2 = true;
             }
             if (client.player.getMainHandStack().getItem() instanceof RangedWeaponItem ||
-                    client.player.getMainHandStack().getItem() instanceof ProjectileItem ||
+                    com.cleannrooster.dungeons_iso.util.VanillaCompat.isProjectileItem(client.player.getMainHandStack().getItem()) ||
                     client.player.getMainHandStack().getItem() instanceof BowItem ||
                     client.player.getMainHandStack().getItem() instanceof CrossbowItem ||
                     client.player.isUsingItem()  ||
@@ -984,7 +984,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             }
          /*   if((FabricLoader.getInstance().isModLoaded("bettercombat") && mouseCooldown > 0 && !bool2  && Config.GSON.instance().additionalMeleeAssistance )){
                 Entity entity = null;
-                var additionMod =  player.getEntityInteractionRange() * 1.25;
+                var additionMod =  com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(player) * 1.25;
                 List<LivingEntity> living = player.getWorld().getEntitiesByClass(LivingEntity.class,player.getBoundingBox().expand(additionMod),
                         (target) ->{
                             return target != player && player.canSee(target) &&  target.distanceTo(player) < additionMod
@@ -1081,8 +1081,8 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                         Vec3d vec3d = movementInputToVelocity(new Vec3d(client.player.input.movementSideways, 0, client.player.input.movementForward), 1.0F, client.player.getVehicle().getYaw());
                         lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, client.player.getEyePos().add(vec3d.normalize()), true);
                     } else {
-                        lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, client.player.getEyePos().add(client.player.getMovement().subtract(
-                                0, client.player.getMovement().getY(), 0).normalize()), true);
+                        lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, client.player.getEyePos().add(client.player.getVelocity().subtract(
+                                0, client.player.getVelocity().getY(), 0).normalize()), true);
 
                     }
                 }
@@ -1094,7 +1094,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
                 GameRenderer renderer = client.gameRenderer;
                 Camera camera = renderer.getCamera();
-                float tickDelta = camera.getLastTickDelta();
+                float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
 
                 if (targeted != null) {
 
@@ -1190,7 +1190,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                         clipMetric = 32;
                     }
                 }
-                //clipMetric = (float) Math.clamp(clipMetric,Math.min(16F,player.getHeight()),Math.max(Math.min(16F,player.getHeight()),16));
+                //clipMetric = (float) net.minecraft.util.math.MathHelper.clamp(clipMetric,Math.min(16F,player.getHeight()),Math.max(Math.min(16F,player.getHeight()),16));
 
 
 

@@ -88,7 +88,7 @@ public final class ContextualInteractionTargeting {
         }
 
         World world = player.getWorld();
-        double range = player.getBlockInteractionRange();
+        double range = com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player);
         Vec3d center_player = player.getBoundingBox().getCenter().add(player.getRotationVector().multiply(player.getWidth()*0.5F));
 
         Vec3d scoreDir = acquisitionDirection;

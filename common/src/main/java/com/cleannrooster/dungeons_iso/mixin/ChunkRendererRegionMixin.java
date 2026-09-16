@@ -1,13 +1,14 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.cullers.room.TerrainCulling;
-import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.render.chunk.ChunkRendererRegion;
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Culls terrain on every non-Sodium chunk renderer, by lying to the mesher about what is there.
@@ -40,18 +41,18 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(ChunkRendererRegion.class)
 public abstract class ChunkRendererRegionMixin {
 
-    @ModifyReturnValue(method = "getBlockState", at = @At("RETURN"))
-    private BlockState cullTerrainXIV(BlockState original, BlockPos pos) {
+    @Inject(method = "getBlockState", at = @At("RETURN"), cancellable = true)
+    private void cullTerrainXIV(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
+        BlockState original = cir.getReturnValue();
         // Hot path: called for every block and every neighbour of every section build.
         if (TerrainCulling.SODIUM || TerrainCulling.idle()) {
-            return original;
+            return;
         }
         try {
             if (TerrainCulling.shouldRemove(original, pos.getX(), pos.getY(), pos.getZ())) {
-                return Blocks.AIR.getDefaultState();
+                cir.setReturnValue(Blocks.AIR.getDefaultState());
             }
         } catch (Exception ignored) {
         }
-        return original;
     }
 }

@@ -60,7 +60,7 @@ public class FogOfWar {
         res = new Vector2d(window.getFramebufferWidth(), window.getFramebufferHeight());
         double aspect = res.x / res.y;
         double fov2 =
-                Math.toRadians(((GameRendererAccessor) renderer).callGetFov(camera, renderer.getCamera().getLastTickDelta(), true)) / 2.0;
+                Math.toRadians(((GameRendererAccessor) renderer).callGetFov(camera, com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta(), true)) / 2.0;
 
         for (int x = 0; x < res.x*1.1; x = (int) (x+res.x/24)) {
             for (int y = 0; y < res.y*1.1; y = (int) (y+res.y/(13.5))){
@@ -150,8 +150,8 @@ CustomShapeTypes.CULLED,
             for (int i = 0; i < points.size(); i++) {
                 Vec2f point = points.get(i);
                 int idx = i * 2;
-                float a = Math.clamp((float) (offsetsArray[idx] + random.nextGaussian() * -offsetsArray[idx] + random.nextGaussian()), -50, 50);
-                float b = Math.clamp((float) (offsetsArray[idx + 1] + random.nextGaussian() * -offsetsArray[idx + 1] + random.nextGaussian()), -50, 50);
+                float a = net.minecraft.util.math.MathHelper.clamp((float) (offsetsArray[idx] + random.nextGaussian() * -offsetsArray[idx] + random.nextGaussian()), -50, 50);
+                float b = net.minecraft.util.math.MathHelper.clamp((float) (offsetsArray[idx + 1] + random.nextGaussian() * -offsetsArray[idx + 1] + random.nextGaussian()), -50, 50);
                 var c = window.calculateScaleFactor(client.options.getGuiScale().getValue(),false);
                 context.drawTexture(Identifier.of("dungeons_iso","textures/shader/sample.png"), (int) point.x/c+(int)a/c-150/c, (int) point.y/c+(int)b/c-150/c,0,0,300/c,300/c,300/c,300/c);
 

@@ -72,7 +72,7 @@ public abstract class KeyboardInputMixin extends Input {
 
             Vector2f movement = new Vector2f(this.movementForward, this.movementSideways);
 
-            float tickDelta = client.gameRenderer.getCamera().getLastTickDelta();
+            float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
 
             boolean bool = ((MinecraftClientAccessor)client).getLocation() instanceof EntityHitResult result && result.getEntity() instanceof ItemEntity;
             // Cancel the tick-aligned player yaw (the same value vanilla's updateVelocity rotates the
@@ -82,10 +82,13 @@ public abstract class KeyboardInputMixin extends Input {
             // cursor and cursor-facing) wobbles in a feedback loop. Using the tick yaw cancels
             // vanilla's rotation exactly, keeping movement precisely camera-relative.
             float yaw = client.gameRenderer.getCamera().getYaw() - client.player.getYaw();
-            if((Config.GSON.instance().isClickToMove() || bool) &&  ((MinecraftClientAccessor)client).getOriginalLocation() != null  && ((MinecraftClientAccessor)client).getLocation() != null &&((MinecraftClientAccessor)client).getLocation().getPos() instanceof Vec3d vec3d
+            Vec3d targetPosition = ((MinecraftClientAccessor)client).getLocation() == null
+                    ? null
+                    : ((MinecraftClientAccessor)client).getLocation().getPos();
+            if((Config.GSON.instance().isClickToMove() || bool) &&  ((MinecraftClientAccessor)client).getOriginalLocation() != null  && ((MinecraftClientAccessor)client).getLocation() != null && ((MinecraftClientAccessor)client).getLocation().getPos() != null
                     && client.player.squaredDistanceTo(((MinecraftClientAccessor)client).getOriginalLocation()) < (((MinecraftClientAccessor)client).getOriginalLocation()).squaredDistanceTo(((MinecraftClientAccessor)client).getLocation().getPos())-1) {
                    if(((MinecraftClientAccessor)client).getLocation() instanceof EntityHitResult && ((MinecraftClientAccessor)client).getLocation().getPos().subtract(0,((MinecraftClientAccessor)client).getLocation().getPos().getY()-(client.player.getPos()).getY(),0)
-                           .squaredDistanceTo(client.player.getPos()) < (bool ? client.player.getWidth()/2 :(client.player.getEntityInteractionRange() * client.player.getEntityInteractionRange()/4))){
+                           .squaredDistanceTo(client.player.getPos()) < (bool ? client.player.getWidth()/2 :(com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(client.player) * com.cleannrooster.dungeons_iso.util.VanillaCompat.entityInteractionRange(client.player)/4))){
                        return;
                    }
                 if(((MinecraftClientAccessor)client).getLocation() instanceof BlockHitResult result && Mod.isInteractable(result)){
@@ -109,7 +112,7 @@ public abstract class KeyboardInputMixin extends Input {
                     return;
                 }
                     movement = new Vector2f(1.0F, 0F);
-                   yaw = getAngle(new Vec3d(0, 0, 0), vec3d.subtract(client.player.getPos()).subtract(0, vec3d.subtract(client.player.getPos()).getY(), 0));
+                   yaw = getAngle(new Vec3d(0, 0, 0), targetPosition.subtract(client.player.getPos()).subtract(0, targetPosition.subtract(client.player.getPos()).getY(), 0));
 
                    movement.mul(new Matrix2f().rotate((float) Math.toRadians(yaw)));
                    movement.mul(new Matrix2f().rotate((float) Math.toRadians(+client.player.getYaw(tickDelta))));

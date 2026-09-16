@@ -95,7 +95,7 @@ public final class InteractionTargeting {
             return false;
         }
 
-        double range = player.getBlockInteractionRange();
+        double range = com.cleannrooster.dungeons_iso.util.VanillaCompat.blockInteractionRange(player);
 
         return squaredDistanceToBlock(player.getEyePos(), pos)
                 <= range * range;

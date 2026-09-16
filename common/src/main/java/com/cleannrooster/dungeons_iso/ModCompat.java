@@ -4,10 +4,8 @@ package com.cleannrooster.dungeons_iso;
  * Cross-platform mod detection and environment utilities.
  * Works at any point in the startup lifecycle — including mixin application time.
  *
- * Strategy: try Fabric's FabricLoader first (compiles fine since fabric-loader is on
- * the common compile classpath); if it's missing at runtime (NeoForge without FFAPI),
- * NoClassDefFoundError is thrown and caught, then we fall back to NeoForge's ModList
- * via reflection.
+ * Strategy: try Fabric's FabricLoader first; if it is missing at runtime, fall back to the
+ * Forge or NeoForge loader through reflection so this class never has a hard loader dependency.
  */
 public class ModCompat {
 
@@ -16,14 +14,17 @@ public class ModCompat {
         try {
             return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(modId);
         } catch (Throwable ignored) {}
-        // NeoForge
-        try {
-            Class<?> modListClass = Class.forName("net.neoforged.fml.ModList");
-            Object modList = modListClass.getMethod("get").invoke(null);
-            if (modList != null) {
-                return (boolean) modListClass.getMethod("isLoaded", String.class).invoke(modList, modId);
+        // Forge / NeoForge
+        for (String className : new String[]{"net.minecraftforge.fml.ModList", "net.neoforged.fml.ModList"}) {
+            try {
+                Class<?> modListClass = Class.forName(className);
+                Object modList = modListClass.getMethod("get").invoke(null);
+                if (modList != null) {
+                    return (boolean) modListClass.getMethod("isLoaded", String.class).invoke(modList, modId);
+                }
+            } catch (Throwable ignored) {
             }
-        } catch (Throwable ignored) {}
+        }
         return false;
     }
 
@@ -50,12 +51,17 @@ public class ModCompat {
         try {
             return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir();
         } catch (Throwable ignored) {}
-        // NeoForge
-        try {
-            Class<?> fmlPaths = Class.forName("net.neoforged.fml.loading.FMLPaths");
-            Object configDir = fmlPaths.getField("CONFIGDIR").get(null);
-            return (java.nio.file.Path) fmlPaths.getMethod("get").invoke(configDir);
-        } catch (Throwable ignored) {}
+        // Forge / NeoForge
+        for (String className : new String[]{
+                "net.minecraftforge.fml.loading.FMLPaths",
+                "net.neoforged.fml.loading.FMLPaths"}) {
+            try {
+                Class<?> fmlPaths = Class.forName(className);
+                Object configDir = fmlPaths.getField("CONFIGDIR").get(null);
+                return (java.nio.file.Path) fmlPaths.getMethod("get").invoke(configDir);
+            } catch (Throwable ignored) {
+            }
+        }
         // Absolute, because callers take getParent() of this to find the game root and
         // Path.of("config").getParent() is null.
         return java.nio.file.Path.of("config").toAbsolutePath();
@@ -66,11 +72,16 @@ public class ModCompat {
         try {
             return net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment();
         } catch (Throwable ignored) {}
-        // NeoForge — FMLLoader.isProduction() returns true when NOT in dev
-        try {
-            Class<?> fmlLoaderClass = Class.forName("net.neoforged.fml.loading.FMLLoader");
-            return !(boolean) fmlLoaderClass.getMethod("isProduction").invoke(null);
-        } catch (Throwable ignored) {}
+        // Forge / NeoForge — FMLLoader.isProduction() returns true when NOT in dev
+        for (String className : new String[]{
+                "net.minecraftforge.fml.loading.FMLLoader",
+                "net.neoforged.fml.loading.FMLLoader"}) {
+            try {
+                Class<?> fmlLoaderClass = Class.forName(className);
+                return !(boolean) fmlLoaderClass.getMethod("isProduction").invoke(null);
+            } catch (Throwable ignored) {
+            }
+        }
         return false;
     }
 }

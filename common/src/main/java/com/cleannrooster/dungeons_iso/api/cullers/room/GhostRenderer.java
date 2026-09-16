@@ -254,7 +254,7 @@ public final class GhostRenderer {
 
             for (int i = 0; i < 4; i++) {
                 int o = (v + i) * STRIDE;
-                consumer.vertex(entry,
+                consumer.vertex(entry.getPositionMatrix(),
                                 (float) (offX + geometry[o]),
                                 (float) (offY + geometry[o + 1]),
                                 (float) (offZ + geometry[o + 2]))
@@ -262,7 +262,7 @@ public final class GhostRenderer {
                         .texture(geometry[o + 3], geometry[o + 4])
                         .overlay(OverlayTexture.DEFAULT_UV)
                         .light(lights[v + i])
-                        .normal(entry, geometry[o + 5], geometry[o + 6], geometry[o + 7]);
+                        .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7]);
             }
         }
     }
@@ -491,7 +491,7 @@ public final class GhostRenderer {
                 this.scale = Math.max(1.0E-4, Mod.getZoom() * 2.0);
             } else {
                 double fov = ((GameRendererAccessor) gameRenderer)
-                        .callGetFov(camera, camera.getLastTickDelta(), true);
+                        .callGetFov(camera, com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta(), true);
                 this.scale = Math.max(1.0E-4, Math.tan(Math.toRadians(fov) / 2.0));
             }
         }
