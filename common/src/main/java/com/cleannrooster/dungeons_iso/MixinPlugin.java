@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 public class MixinPlugin  implements IMixinConfigPlugin {
-    /**
-     * Temporary test switch. Keep the Sodium compatibility sources and mixin declarations in
-     * place, but do not apply them while validating the vanilla/Indigo culling path.
-     */
+    /** The old net.caffeinemc Sodium sources remain disabled; Embeddium has its own hooks below. */
     private static final boolean ENABLE_SODIUM_COMPAT = false;
 
     @Override
@@ -28,6 +25,12 @@ public class MixinPlugin  implements IMixinConfigPlugin {
 
         if (!ENABLE_SODIUM_COMPAT && (mixinClassName.contains(".compat.sodium.")
                 || mixinClassName.endsWith(".FabricBlockAccessMixin"))) {
+            return false;
+        }
+
+        if (mixinClassName.contains(".compat.embeddium.")
+                && !ModCompat.isModLoaded("embeddium")
+                && !ModCompat.isModLoaded("rubidium")) {
             return false;
         }
 

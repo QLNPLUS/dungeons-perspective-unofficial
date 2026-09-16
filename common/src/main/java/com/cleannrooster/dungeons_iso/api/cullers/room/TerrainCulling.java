@@ -32,7 +32,7 @@ public final class TerrainCulling {
      * the vanilla hooks would never fire for terrain anyway — but they are also reachable from
      * other callers, and standing down explicitly is cheaper than reasoning about which.
      */
-    public static final boolean SODIUM = ModCompat.isModLoaded("sodium");
+    public static final boolean SODIUM = ModCompat.isSodiumLikeLoaded();
 
     /**
      * Set once, on the client thread, by {@link #warmUp()}. Until then every query answers "not

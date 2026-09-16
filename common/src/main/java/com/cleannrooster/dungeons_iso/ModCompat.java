@@ -9,6 +9,15 @@ package com.cleannrooster.dungeons_iso;
  */
 public class ModCompat {
 
+    /**
+     * Embeddium 0.3.x exposes the old Sodium-compatible renderer under its own mod ids. Keep this
+     * test in one place because the renderer hooks and the rebuild scheduler must agree about
+     * which chunk pipeline is active.
+     */
+    public static boolean isSodiumLikeLoaded() {
+        return isModLoaded("sodium") || isModLoaded("embeddium") || isModLoaded("rubidium");
+    }
+
     public static boolean isModLoaded(String modId) {
         // Fabric
         try {

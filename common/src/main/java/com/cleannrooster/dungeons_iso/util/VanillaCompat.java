@@ -63,7 +63,14 @@ public final class VanillaCompat {
 
     public static boolean canInteractWithEntity(PlayerEntity player, Entity entity, double additionalRange) {
         double range = entityInteractionRange(player) + additionalRange;
-        return player.getEyePos().squaredDistanceTo(entity.getBoundingBox().getCenter()) <= range * range;
+        // Use the nearest point on the hitbox, matching vanilla interaction checks. The center can
+        // be outside reach while the entity's near edge is still directly under the mouse ray.
+        var box = entity.getBoundingBox();
+        Vec3d eye = player.getEyePos();
+        double x = Math.max(box.minX, Math.min(eye.x, box.maxX));
+        double y = Math.max(box.minY, Math.min(eye.y, box.maxY));
+        double z = Math.max(box.minZ, Math.min(eye.z, box.maxZ));
+        return eye.squaredDistanceTo(new Vec3d(x, y, z)) <= range * range;
     }
 
     public static boolean canInteractWithBlock(PlayerEntity player, net.minecraft.util.math.BlockPos pos, double additionalRange) {

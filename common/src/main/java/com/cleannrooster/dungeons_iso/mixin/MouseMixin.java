@@ -47,6 +47,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.cleannrooster.dungeons_iso.ClientInit;
 import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.mod.Mod;
+import com.cleannrooster.dungeons_iso.util.CulledVisibility;
 
 import java.util.Iterator;
 import java.util.Optional;
@@ -509,7 +510,12 @@ public class MouseMixin implements MouseAccessor {
                 }
             }
 
-            if (entity2 == null || (entity instanceof LivingEntity living && !living.canSee(entity2)) || entity2.isInvisible() || (entity instanceof PlayerEntity player && entity2.isInvisibleTo(player))) {
+            if (entity2 == null
+                    || (entity instanceof LivingEntity living
+                    && !CulledVisibility.canSee(MinecraftClient.getInstance(),
+                    living.getEyePos(), entity2.getEyePos(), null))
+                    || entity2.isInvisible()
+                    || (entity instanceof PlayerEntity player && entity2.isInvisibleTo(player))) {
                 return null;
             }
             if(Mod.crosshairTarget instanceof EntityHitResult result && entity2.equals(result.getEntity())){

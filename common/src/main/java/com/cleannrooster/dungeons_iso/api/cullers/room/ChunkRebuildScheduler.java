@@ -11,8 +11,8 @@ import com.cleannrooster.dungeons_iso.ModCompat;
  */
 public interface ChunkRebuildScheduler {
 
-    /** Temporary test switch matching the disabled Sodium mixins in {@code MixinPlugin}. */
-    boolean ENABLE_SODIUM_COMPAT = false;
+    /** The fast renderer path is enabled for the detected Sodium-compatible implementation. */
+    boolean ENABLE_SODIUM_COMPAT = true;
 
     /** Schedules a rebuild of the section at the given section coordinates. */
     void scheduleSection(int sectionX, int sectionY, int sectionZ);
@@ -37,10 +37,12 @@ public interface ChunkRebuildScheduler {
         }
 
         private static ChunkRebuildScheduler resolve() {
-            if (ENABLE_SODIUM_COMPAT && ModCompat.isModLoaded("sodium")) {
+            if (ENABLE_SODIUM_COMPAT && ModCompat.isSodiumLikeLoaded()) {
                 try {
-                    return (ChunkRebuildScheduler) Class
-                            .forName("com.cleannrooster.dungeons_iso.compat.SodiumRebuildScheduler")
+                    String scheduler = ModCompat.isModLoaded("embeddium") || ModCompat.isModLoaded("rubidium")
+                            ? "com.cleannrooster.dungeons_iso.compat.EmbeddiumRebuildScheduler"
+                            : "com.cleannrooster.dungeons_iso.compat.SodiumRebuildScheduler";
+                    return (ChunkRebuildScheduler) Class.forName(scheduler)
                             .getDeclaredConstructor()
                             .newInstance();
                 } catch (Throwable ignored) {

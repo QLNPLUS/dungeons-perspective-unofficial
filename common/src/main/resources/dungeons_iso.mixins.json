@@ -19,7 +19,9 @@
     "BackgroundRendererMixin",
     "ChunkRendererRegionMixin",
     "KeyBindingMixin",
-    "WorldRendererMixin"
+    "WorldRendererMixin",
+    "compat.embeddium.EmbeddiumBlockRenderContextMixin",
+    "compat.embeddium.EmbeddiumBlockRendererMixin"
 
   ],
   "server": [],

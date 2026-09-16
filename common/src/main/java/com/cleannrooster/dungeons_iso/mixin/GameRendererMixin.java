@@ -40,6 +40,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.cleannrooster.dungeons_iso.ClientInit;
 import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.mod.Mod;
+import com.cleannrooster.dungeons_iso.util.CulledVisibility;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
@@ -147,10 +148,10 @@ public abstract class GameRendererMixin {
      * ({@link Mod#crosshairTarget}) directly. Placement, mining, use and attack then land exactly
      * where the cursor points, independent of head pitch.
      *
-     * A target is accepted only when it is both in reach and in line of sight from the player's eye;
-     * otherwise it becomes a MISS. The mouse ray originates at the top-down camera, so it can select
-     * things the player's eye cannot reach in a straight line (e.g. a chest behind a wall, visible
-     * from above) — walking to those is handled by click-to-move, not direct interaction.
+     * A target is accepted only when it is in reach and no non-culled block blocks the player's eye.
+     * Blocks removed by this mod's terrain culler are treated as transparent here too; otherwise
+     * the renderer opens a sightline while the interaction ray still hits the hidden wall, making
+     * mouse highlights and attacks disappear exactly when the culling feature is doing its job.
      *
      *  - Reach is geometry-aware: squared distance from the eye to the nearest point of the target's
      *    bounding box (Box#squaredDistanceTo), matching vanilla's interaction-range checks, so a
@@ -220,14 +221,6 @@ public abstract class GameRendererMixin {
      */
     @Unique
     private boolean isOccludedFromEye(MinecraftClient client, Vec3d eye, Vec3d targetPoint, @Nullable BlockPos targetPos) {
-        BlockHitResult los = client.world.raycast(new RaycastContext(
-                eye, targetPoint, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, client.player));
-        if (los.getType() != HitResult.Type.BLOCK) {
-            return false;
-        }
-        if (targetPos != null && los.getBlockPos().equals(targetPos)) {
-            return false;
-        }
-        return eye.squaredDistanceTo(los.getPos()) < eye.squaredDistanceTo(targetPoint) - 1.0E-4;
+        return !CulledVisibility.canSee(client, eye, targetPoint, targetPos);
     }
 }

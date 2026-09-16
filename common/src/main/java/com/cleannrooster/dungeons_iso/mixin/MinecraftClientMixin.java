@@ -65,6 +65,7 @@ import com.cleannrooster.dungeons_iso.compat.SpellEngineCompat;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 import com.cleannrooster.dungeons_iso.util.ContextualInteractionTargeting;
 import com.cleannrooster.dungeons_iso.util.ContextualTargeting;
+import com.cleannrooster.dungeons_iso.util.CulledVisibility;
 import com.cleannrooster.dungeons_iso.util.Util;
 
 import java.util.ArrayList;
@@ -1275,9 +1276,24 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
     @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true)
 
     private void doAttackXIV(CallbackInfoReturnable<Boolean> ci) {
-            if (Config.GSON.instance().additionalMeleeAssistance && crosshairTarget instanceof EntityHitResult entityHitResult) {
-                targeted = entityHitResult.getEntity();
-                pickCooldown = 20;
-            }
+        if (!Mod.enabled || !(Mod.crosshairTarget instanceof EntityHitResult entityHitResult)
+                || player == null
+                || !com.cleannrooster.dungeons_iso.util.VanillaCompat.canInteractWithEntity(
+                player, entityHitResult.getEntity(), 0.0)
+                || !CulledVisibility.canSee(MinecraftClient.getInstance(), player.getEyePos(),
+                entityHitResult.getPos(), null)) {
+            return;
+        }
+
+        // Attack uses MinecraftClient#crosshairTarget, while the isometric mouse ray is stored in
+        // Mod#crosshairTarget. Copy it at the last possible moment so combat does not depend on
+        // whether the cosmetic player-facing code rotated the entity this tick.
+        MinecraftClient client = MinecraftClient.getInstance();
+        client.crosshairTarget = entityHitResult;
+        client.targetedEntity = entityHitResult.getEntity();
+        if (Config.GSON.instance().additionalMeleeAssistance) {
+            targeted = entityHitResult.getEntity();
+            pickCooldown = 20;
+        }
     }
 }

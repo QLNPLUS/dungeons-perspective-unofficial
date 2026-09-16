@@ -21,9 +21,9 @@ sourceSets {
         java.srcDirs = ['common/src/main/java', 'forge/src/main/java']
         resources.srcDirs = ['common/src/main/resources', 'forge/src/main/resources']
         java {
-            // These integrations belong to the upstream Fabric/Sodium surface. Forge 1.20.1
-            // intentionally builds the vanilla renderer path first; the runtime mixin plugin
-            // already keeps these optional hooks disabled.
+            // These integrations belong to the upstream Fabric/Sodium surface. The old
+            // net.caffeinemc hooks stay out of the Forge 1.20.1 artifact, while the separate
+            // string-targeted Embeddium 0.3.x hooks are loader-safe and remain compiled.
             exclude '**/mixin/compat/sodium/**'
             exclude '**/mixin/compat/combat_roll/**'
             exclude '**/compat/SodiumRebuildScheduler.java'
@@ -64,6 +64,17 @@ dependencies {
     // Optional compatibility integrations used by the upstream common code.
     modCompileOnly "io.wispforest:owo-lib:${owo_version}"
     modCompileOnly "dev.kosmx.player-anim:player-animation-lib-forge:${player_anim_version}"
+
+    // Embeddium 0.3.x is an optional local renderer dependency. It is compile-only so the mod
+    // remains installable without Embeddium, while Mixin's annotation processor can still resolve
+    // the old me.jellysquid target classes when building this branch against the user's instance.
+    def embeddiumJar = file(findProperty('embeddium_jar') ?: 'D:/Minecraft/versions/Last One But 2/mods/[C][优化]embeddium-0.3.31+mc1.20.1.jar')
+    if (embeddiumJar.exists()) {
+        modCompileOnly files(embeddiumJar)
+        if (findProperty('embeddium_runtime') == 'true') {
+            modLocalRuntime files(embeddiumJar)
+        }
+    }
 }
 
 processResources {
