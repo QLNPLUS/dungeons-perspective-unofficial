@@ -528,6 +528,14 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 */
 
 
+                    } else if (Config.GSON.instance().isTurnToMouse() && !player.isFallFlying()) {
+                        // A blocked ray can leave crosshairTarget null. Keep the character facing
+                        // the camera's current horizontal direction instead of freezing at the
+                        // last successful target.
+                        double yaw = Math.toRadians(Mod.yaw);
+                        Vec3d lookDirection = new Vec3d(-Math.sin(yaw), 0.0D, Math.cos(yaw));
+                        lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES,
+                                client.player.getEyePos().add(lookDirection), true);
                     }
 
                 }

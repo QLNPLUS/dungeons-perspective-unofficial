@@ -131,12 +131,16 @@ public final class GhostRenderer {
         // however the two are configured.
         float opaqueAt = Math.max(clearAt + 0.01F, Config.GSON.instance().ghostOpaqueScreen);
 
-        SightlineMask mask = SightlineScanner.INSTANCE.isActive()
+        // Chunk meshes are rebuilt in batches. Keep the published cull geometry available while
+        // that queue drains, otherwise the old invisible mesh has no translucent fallback for a
+        // few frames and the blocking terrain appears to vanish instead of fading.
+        boolean rebuilding = SectionRebuildQueue.INSTANCE.size() > 0;
+        SightlineMask mask = SightlineScanner.INSTANCE.isActive() || rebuilding
                 ? SightlineScanner.INSTANCE.mask() : null;
         if (mask != null && mask.suppressesCulling()) {
             mask = null;
         }
-        RoomSnapshot snapshot = RoomScanner.INSTANCE.isActive()
+        RoomSnapshot snapshot = RoomScanner.INSTANCE.isActive() || rebuilding
                 ? RoomScanner.INSTANCE.snapshot() : null;
 
         ensureGeometry(client, world, mask, snapshot);

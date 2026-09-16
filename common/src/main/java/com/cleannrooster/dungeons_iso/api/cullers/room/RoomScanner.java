@@ -247,7 +247,13 @@ public final class RoomScanner implements ScanWorker.Job {
         topAir.defaultReturnValue(Integer.MIN_VALUE);
         LongArrayList airColumns = new LongArrayList();
 
-        flood(req, start, topAir, airColumns);
+        if (!flood(req, start, topAir, airColumns)) {
+            // A capped flood is not a room verdict. Publishing its partial BFS result can make
+            // an underground cave system look like a very large roof and remove whole sections.
+            this.lastAirColumns = airColumns.size();
+            this.lastResult = "volume cap reached: fail-open";
+            return empty(req);
+        }
         this.lastAirColumns = airColumns.size();
         if (airColumns.isEmpty()) {
             this.lastResult = this.lastStartCeiling == NO_CEILING
@@ -312,8 +318,8 @@ public final class RoomScanner implements ScanWorker.Job {
     }
 
     /** Stage 1: breadth-first flood through passable cells, recording the top air per column. */
-    private void flood(ScanRequest req, BlockPos start,
-                       Long2IntOpenHashMap topAir, LongArrayList airColumns) {
+    private boolean flood(ScanRequest req, BlockPos start,
+                          Long2IntOpenHashMap topAir, LongArrayList airColumns) {
         ChunkView view = req.view;
         int startX = start.getX();
         int startY = start.getY();
@@ -338,7 +344,7 @@ public final class RoomScanner implements ScanWorker.Job {
         if (startCeiling == NO_CEILING) {
             // The player's own column is open to the sky. Bail immediately rather than flooding
             // thousands of outdoor columns only for solveRoofs to throw them all away.
-            return;
+            return true;
         }
         int floor = startCeiling - req.ceilingTolerance;
 
@@ -350,9 +356,9 @@ public final class RoomScanner implements ScanWorker.Job {
             tickBudget(req);
 
             if (visited.size() > req.maxVolume) {
-                // Not a room — a cave system, or the open world through a doorway. Keep what we
-                // have; the BFS ordering means it is a ball centred on the player.
-                break;
+                // Not a room — a cave system, or the open world through a doorway. A partial BFS
+                // is not a safe culling verdict, so fail open and let the old mesh come back.
+                return false;
             }
 
             long packed = queue.dequeueLong();
@@ -376,6 +382,7 @@ public final class RoomScanner implements ScanWorker.Job {
             enqueue(view, queue, visited, ceilings, x, y + 1, z, startX, startY, startZ, radiusSq, minY, maxY, floor);
             enqueue(view, queue, visited, ceilings, x, y - 1, z, startX, startY, startZ, radiusSq, minY, maxY, floor);
         }
+        return true;
     }
 
     /**

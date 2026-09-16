@@ -102,6 +102,12 @@ public final class ChunkView {
         if (state == null) {
             return UNKNOWN;
         }
+        // Fluids are not movement-blocking, but treating a whole water/lava volume as air lets an
+        // underground flood escape through caves and produce a misleading room verdict. The
+        // fluid state is part of the immutable BlockState, so this remains safe off-thread.
+        if (!state.getFluidState().isEmpty()) {
+            return SOLID;
+        }
         // blocksMovement() reads a boolean cached when the BlockState was built. It needs no world
         // context and allocates nothing, which is what makes it usable from this thread — unlike
         // getCameraCollisionShape(world, pos, ctx), which queries the world for some blocks.
