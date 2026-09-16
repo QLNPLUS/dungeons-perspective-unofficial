@@ -108,7 +108,7 @@ public final class GhostRenderer {
      * Called from the world render, after terrain. {@code matrices} is not camera-relative here, so
      * positions are offset by the camera manually — matching how the rest of this mixin draws.
      */
-    public static void render(MatrixStack matrices, VertexConsumerProvider buffers,
+    public static void render(MatrixStack matrices, VertexConsumerProvider.Immediate buffers,
                               Camera camera, GameRenderer gameRenderer) {
         if (!Mod.enabled || !Config.GSON.instance().ghostCulledBlocks) {
             invalidate();
@@ -171,8 +171,8 @@ public final class GhostRenderer {
         float focusY = screen[1];
         lastVertexCount = vertexCount;
 
-        VertexConsumer consumer = buffers.getBuffer(
-                RenderLayer.getEntityTranslucent(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
+        RenderLayer ghostLayer = RenderLayer.getEntityTranslucent(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        VertexConsumer consumer = buffers.getBuffer(ghostLayer);
 
         double offX = originX - cameraPos.x;
         double offY = originY - cameraPos.y;
@@ -269,6 +269,11 @@ public final class GhostRenderer {
                         .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7]);
             }
         }
+
+        // DebugRenderer's caller only flushes whichever layer happens to be current after all
+        // debug overlays have run. Submit this layer explicitly, otherwise the ghost vertices can
+        // remain buffered and never reach the translucent pass.
+        buffers.draw(ghostLayer);
     }
 
     // ------------------------------------------------------------------ geometry cache
