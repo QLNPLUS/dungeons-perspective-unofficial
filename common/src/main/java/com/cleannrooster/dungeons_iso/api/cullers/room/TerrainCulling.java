@@ -41,8 +41,8 @@ public final class TerrainCulling {
      * <p>This exists to keep class loading off the chunk-build workers. {@code ChunkRendererRegion}
      * is meshed on a worker pool, so without this the first block of the first section built is a
      * worker thread's first touch of {@link TerrainCulling}, {@code Mod}, {@code Config}, and
-     * through it YACL — meaning a worker triggers first-time loading and static init of a stack of
-     * mod classes through ModLauncher's transforming classloader, while the render thread is doing
+     * through it the config backend — meaning a worker triggers first-time loading and static init
+     * of a stack of mod classes through ModLauncher's transforming classloader, while the render thread is doing
      * the same for its own reasons. That deadlocks silently: no exception, no log line, the world
      * simply never finishes loading. Nothing here is ever the first to load a class now.
      */

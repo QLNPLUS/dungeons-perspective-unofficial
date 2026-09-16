@@ -42,10 +42,7 @@ public class ModCompat {
         }
     }
 
-    /**
-     * The loader's config directory. Used by the no-YACL config backend, which cannot ask
-     * {@code YACLPlatform} for it.
-     */
+    /** The loader's config directory used by the JSON config backend. */
     public static java.nio.file.Path getConfigDir() {
         // Fabric
         try {

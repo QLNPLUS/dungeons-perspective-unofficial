@@ -12,15 +12,7 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * Config persistence without YACL, using the Gson that Minecraft already ships.
- *
- * <p>Writes the same file YACL's serialiser writes. Every instance field on {@link Config} carries
- * {@code @SerialEntry}, and Gson serialises exactly the non-static non-transient instance fields,
- * so the two produce the same key set — settings survive installing or removing YACL. (The
- * annotation itself cannot be read here: with YACL absent the JVM silently drops annotations whose
- * class is missing, so there is nothing to filter on even if we wanted to.)
- */
+/** JSON persistence using the Gson runtime already shipped with Minecraft. */
 public final class GsonConfigBackend<T> implements ConfigBackend<T> {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -42,20 +34,18 @@ public final class GsonConfigBackend<T> implements ConfigBackend<T> {
 
     @Override
     public void load() {
-        if (!Files.isRegularFile(this.path)) {
-            return;
-        }
-        try (Reader reader = Files.newBufferedReader(this.path)) {
-            T loaded = GSON.fromJson(reader, this.type);
-            if (loaded != null) {
-                // Copied onto the live object rather than swapping it, so any reference taken
-                // before load() keeps seeing current values. Keys absent from the file simply
-                // never get copied, leaving the field default in place.
-                copyFields(loaded, this.instance);
+        if (Files.isRegularFile(this.path)) {
+            try (Reader reader = Files.newBufferedReader(this.path)) {
+                com.google.gson.JsonElement root = com.google.gson.JsonParser.parseReader(reader);
+                if (root.isJsonObject()) {
+                    copyFields(root.getAsJsonObject(), this.instance);
+                }
+            } catch (Exception ignored) {
+                // A corrupt or half-written file leaves the defaults standing.
             }
-        } catch (Exception ignored) {
-            // A corrupt or half-written file leaves the defaults standing, which is the same
-            // outcome YACL produces and strictly better than refusing to start.
+        }
+        if (!Files.isRegularFile(this.path)) {
+            save();
         }
     }
 
@@ -70,20 +60,18 @@ public final class GsonConfigBackend<T> implements ConfigBackend<T> {
         }
     }
 
-    @Override
-    public Object handler() {
-        return null;
-    }
-
-    private void copyFields(T from, T to) {
+    private void copyFields(com.google.gson.JsonObject values, T to) {
         for (Field field : this.type.getDeclaredFields()) {
             int mods = field.getModifiers();
-            if (Modifier.isStatic(mods) || Modifier.isTransient(mods)) {
+            if (Modifier.isStatic(mods) || Modifier.isTransient(mods) || !values.has(field.getName())) {
                 continue;
             }
             try {
                 field.setAccessible(true);
-                field.set(to, field.get(from));
+                Object value = GSON.fromJson(values.get(field.getName()), field.getGenericType());
+                if (value != null || !field.getType().isPrimitive()) {
+                    field.set(to, value);
+                }
             } catch (Exception ignored) {
             }
         }

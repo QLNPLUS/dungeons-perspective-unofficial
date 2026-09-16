@@ -6,7 +6,6 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.Perspective;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Final;
@@ -30,16 +29,16 @@ public class InGameHudMixin {
     @Inject(
             method = "render", at = @At("HEAD"), cancellable = true
     )
-    public void renderDarkness(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+    public void renderDarkness(DrawContext context, float tickDelta, CallbackInfo ci) {
         if(Mod.enabled && ((client.getCameraEntity() instanceof LivingEntity living && living.hasStatusEffect(DARKNESS)) || Config.GSON.instance().fogOfWar) && fogOfWar != null) {
-            fogOfWar.render(context,com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta());
+            fogOfWar.render(context, tickDelta);
         }
     }
 
     @Inject(
             method = "renderCrosshair", at = @At("HEAD"), cancellable = true
     )
-    private void crosshairPreXIV(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void crosshairPreXIV(DrawContext context, float tickDelta, CallbackInfo ci) {
         if (Mod.enabled) {
             ci.cancel();
 

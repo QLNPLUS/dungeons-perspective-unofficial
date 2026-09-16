@@ -27,8 +27,6 @@ sourceSets {
             exclude '**/mixin/compat/sodium/**'
             exclude '**/mixin/compat/combat_roll/**'
             exclude '**/compat/SodiumRebuildScheduler.java'
-            exclude '**/config/Gui.java'
-            exclude '**/config/ToggleableController.java'
             exclude '**/mixin/SoundSystemMixin.java'
             exclude '**/mixin/client/PlayerEntityMixin.java'
             exclude '**/network/Capabilities.java'
@@ -63,9 +61,7 @@ dependencies {
     modCompileOnly "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modCompileOnly "dev.su5ed.sinytra.fabric-api:fabric-api:${ffapi_version}"
 
-    // Optional UI and compatibility integrations used by the upstream common code.
-    modCompileOnly "dev.isxander:yet-another-config-lib:${yacl_version}"
-    modCompileOnly "me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}"
+    // Optional compatibility integrations used by the upstream common code.
     modCompileOnly "io.wispforest:owo-lib:${owo_version}"
     modCompileOnly "dev.kosmx.player-anim:player-animation-lib-forge:${player_anim_version}"
     modImplementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
