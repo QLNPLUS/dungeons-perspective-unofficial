@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- Fixed nearby entities disappearing when the perspective camera is moved away from the player.
+- Fixed entity visibility changing with camera angle or chunk boundaries while underground.
+
 ## 1.1.0
 
 - Fixed large areas of underground terrain disappearing at certain camera angles with Embeddium.
