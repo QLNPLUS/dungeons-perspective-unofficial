@@ -14,6 +14,7 @@
     "KeyboardMixin",
     "MinecraftClientMixin",
     "MouseMixin",
+    "EntityRenderDispatcherMixin",
     "WorldRendererMixin",
     "client.PlayerEntityMixin",
     "GameOptionsMixin",

@@ -5,6 +5,7 @@ import com.cleannrooster.dungeons_iso.api.ChunkDataAccessor;
 import com.cleannrooster.dungeons_iso.api.MinecraftClientAccessor;
 import com.cleannrooster.dungeons_iso.api.WorldRendererAccessor;
 import com.cleannrooster.dungeons_iso.mod.Mod;
+import com.cleannrooster.dungeons_iso.util.EntityVisibility;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -15,6 +16,7 @@ import net.minecraft.client.render.chunk.ChunkBuilder;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
@@ -27,6 +29,7 @@ import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -45,6 +48,20 @@ public abstract class WorldRendererMixin implements WorldRendererAccessor {
 
     @Shadow(remap = false)
     private BlockingQueue<ChunkBuilder.BuiltChunk> f_194306_;
+
+    @Redirect(
+            method = "render",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/render/WorldRenderer;isRenderingReady(Lnet/minecraft/util/math/BlockPos;)Z"
+            )
+    )
+    private boolean dungeons$allowNearbyEntityRender(WorldRenderer renderer, BlockPos pos) {
+        if (EntityVisibility.isProtected(pos)) {
+            return true;
+        }
+        return renderer.isRenderingReady(pos);
+    }
 
 
  /*   @Inject(method = "getEntitiesToRender", at = @At("TAIL"))
