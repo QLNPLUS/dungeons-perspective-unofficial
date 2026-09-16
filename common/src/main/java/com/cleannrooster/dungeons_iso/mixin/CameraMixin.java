@@ -19,10 +19,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArgs;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import com.cleannrooster.dungeons_iso.ClientInit;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 
@@ -82,22 +81,20 @@ public abstract class CameraMixin implements CameraAccessor {
     @Shadow
     protected abstract void setRotation(float yaw, float pitch);
 
-    @ModifyArgs(
+    @ModifyArg(
             method = "update",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0)
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0),
+            index = 0
     )
-    public void a(Args args) {
-        if (Mod.enabled) {
-            args.set(0,Mod.yaw);
-            args.set(1,Mod.pitch);
-        }
+    private float setCameraYaw(float yaw) {
+        return Mod.enabled ? Mod.yaw : yaw;
     }
 
-    @ModifyArgs(
+    @ModifyArg(
             method = "update",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F", ordinal = 0)
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(D)D", ordinal = 0)
     )
-    public void b(Args args) {
+    private double modifyCameraDistance(double distance) {
         if (Mod.enabled && focusedEntity != null) {
             if(ClientInit.isoBinding.wasPressed()){
                 this.setRotation((float) (Math.ceil(Mod.yaw / 90) * 90 - 45),  45);
@@ -120,11 +117,11 @@ public abstract class CameraMixin implements CameraAccessor {
 
             }
             float g = 0.1F;
-            float f = args.get(0);
+            double f = distance;
 
-            Vector3f vector3f = (new Vector3f(0, 0, (float)((float) args.get(0) * Mod.getZoom()))).rotate(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
+            Vector3f vector3f = (new Vector3f(0, 0, (float)(distance * Mod.getZoom()))).rotate(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
             Vec3d vec = (new Vec3d(this.pos.x + (double)vector3f.x, this.pos.y + (double)vector3f.y, this.pos.z + (double)vector3f.z));
-            Vector3f vector3f2 = (new Vector3f(0, 0, (float)((float) args.get(0) * zoom))).rotate(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
+            Vector3f vector3f2 = (new Vector3f(0, 0, (float)(distance * zoom))).rotate(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
             Vec3d vec2 = (new Vec3d(this.pos.x + (double)vector3f.x, this.pos.y + (double)vector3f.y, this.pos.z + (double)vector3f.z));
 
             Mod.preMod = vec;
@@ -181,12 +178,22 @@ public abstract class CameraMixin implements CameraAccessor {
             }
             frustrumZoom = net.minecraft.util.math.MathHelper.clamp(frustrumZoom,0,20);
 
-            zoomMetric = args.get(0);
-            args.set(0, (float) args.get(0) * getZoom());
+            zoomMetric = (float) distance;
+            return distance * getZoom();
 
 
 
         }
+        return distance;
+    }
+
+    @ModifyArg(
+            method = "update",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0),
+            index = 1
+    )
+    private float setCameraPitch(float pitch) {
+        return Mod.enabled ? Mod.pitch : pitch;
     }
     @Inject(
             method = "update",
@@ -203,7 +210,7 @@ public abstract class CameraMixin implements CameraAccessor {
             at = @At(value = "HEAD"),
             cancellable = true
     )
-    private void clipToSpaceXIV(float a, CallbackInfoReturnable<Float> callbackInfoReturnable) {
+    private void clipToSpaceXIV(double a, CallbackInfoReturnable<Double> callbackInfoReturnable) {
 
         if (MinecraftClient.getInstance().gameRenderer.getCamera() != null && Mod.enabled ) {
 

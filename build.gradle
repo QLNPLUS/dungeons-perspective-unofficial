@@ -64,8 +64,6 @@ dependencies {
     // Optional compatibility integrations used by the upstream common code.
     modCompileOnly "io.wispforest:owo-lib:${owo_version}"
     modCompileOnly "dev.kosmx.player-anim:player-animation-lib-forge:${player_anim_version}"
-    modImplementation "io.github.llamalad7:mixinextras-forge:${mixinextras_version}"
-    compileOnly "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
 }
 
 processResources {

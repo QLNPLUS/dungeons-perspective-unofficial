@@ -6,6 +6,7 @@
   "plugin": "com.cleannrooster.dungeons_iso.MixinPlugin",
   "client": [
     "CameraMixin",
+    "DebugRendererMixin",
     "GameRendererAccessor",
     "GameRendererMixin",
     "InGameHudMixin",

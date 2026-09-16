@@ -3,9 +3,10 @@
   "minVersion": "0.8",
   "package": "com.cleannrooster.dungeons_iso.mixin",
   "compatibilityLevel": "JAVA_17",
+  "plugin": "com.cleannrooster.dungeons_iso.MixinPlugin",
   "client": [
-    "compat.combat_roll.RollManagerMixin",
     "CameraMixin",
+    "DebugRendererMixin",
     "GameRendererAccessor",
     "GameRendererMixin",
     "InGameHudMixin",
@@ -13,33 +14,14 @@
     "KeyboardMixin",
     "MinecraftClientMixin",
     "MouseMixin",
-    "client.PlayerEntityMixin",
     "GameOptionsMixin",
-    "AbstractSoundInstanceMixin",
     "AbstractHorseEntityMixin",
-    "LightmapTextureManagerMixin",
     "BackgroundRendererMixin",
-
-    "WorldMixin",
-    "ClientWorldMixin",
-    "ChunkDataMixin",
+    "ChunkRendererRegionMixin",
     "KeyBindingMixin",
-    "BlockMixin",
-    "ClientPlayerEntityMixin",
-    "BossBarHudMixin",
-    "FabricBlockAccessMixin",
-    "compat.sodium.MixinBlockRenderer",
-    "compat.sodium.SodiumWorldRendererMixin",
-    "compat.sodium.AbstractRenderContextMixin",
-    "compat.sodium.FluidRendererMixin",
-    "compat.sodium.RenderSectionManagerMixin",
-    "compat.midnightcontrols.MovementHandlerMixin"
-
-
+    "WorldRendererMixin"
   ],
-  "server": [
-    "server.PlayerEntityMixin"
-  ],
+  "server": [],
   "injectors": {
     "defaultRequire": 1
   }
