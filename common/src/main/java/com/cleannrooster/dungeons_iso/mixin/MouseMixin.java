@@ -152,9 +152,9 @@ public class MouseMixin implements MouseAccessor {
             // coordsX already has aspect baked in (ndcX * aspect), coordsY is raw ndcY
             double orthoScale = Mod.getZoom() * 2;
             return camera.getPos()
-                    // Camera#getDiagonalPlane is already the camera's positive screen-right axis.
-                    // Negating it mirrored orthographic targets horizontally.
-                    .add(new Vec3d(camera.getDiagonalPlane()).multiply(orthoScale * coordsX))
+                    // Forge 1.20.1 exposes the camera horizontal plane with the screen-left sign.
+                    // Negate it so positive NDC X stays on the cursor's screen-right side.
+                    .add(new Vec3d(camera.getDiagonalPlane()).multiply(-orthoScale * coordsX))
                     .add(new Vec3d(camera.getVerticalPlane()).multiply(orthoScale * coordsY));
         }
         return camera.getPos();
@@ -309,7 +309,8 @@ public class MouseMixin implements MouseAccessor {
                 // Using -Z sends the pick ray behind the visible scene and mirrors both targeting
                 // and the cosmetic player-facing direction.
                 Vector3d forward = camera.getRotation().transform(new Vector3d(0.0, 0.0, 1.0));
-                Vector3d right = camera.getRotation().transform(new Vector3d(1.0, 0.0, 0.0));
+                // The camera's local +X basis is screen-left in Forge 1.20.1.
+                Vector3d right = camera.getRotation().transform(new Vector3d(-1.0, 0.0, 0.0));
                 Vector3d up = camera.getRotation().transform(new Vector3d(0.0, 1.0, 0.0));
 
                 // Construct ray direction

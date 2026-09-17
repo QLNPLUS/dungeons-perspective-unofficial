@@ -69,11 +69,13 @@ public class FogOfWar {
             coords.y = -coords.y;
 
             Vector2d offsets = coords.mul(Math.tan(fov2));
-            Vector3d forward = camera.getRotation().transform(new Vector3d(0.0, 0.0, -1.0));
-            Vector3d right = camera.getRotation().transform(new Vector3d(1.0, 0.0, 0.0));
+            // Forge 1.20.1's Camera uses +Z as its forward basis.
+            Vector3d forward = camera.getRotation().transform(new Vector3d(0.0, 0.0, 1.0));
+            // Forge 1.20.1's local +X camera basis points to screen-left.
+            Vector3d right = camera.getRotation().transform(new Vector3d(-1.0, 0.0, 0.0));
             Vector3d up = camera.getRotation().transform(new Vector3d(0.0, 1.0, 0.0));
             Vector3d dir = forward.add(right.mul(offsets.x).add(up.mul(offsets.y))).normalize();
-            Vector3d orth = camera.getRotation().transform(new Vector3d(0.0, 0.0, -1.0)).normalize();
+            Vector3d orth = camera.getRotation().transform(new Vector3d(0.0, 0.0, 1.0)).normalize();
             Vec3d rayDir = Config.GSON.instance().ortho ? new Vec3d(orth.x, orth.y, orth.z) : new Vec3d(dir.x, dir.y, dir.z);
                 Vec3d end =                             (Config.GSON.instance().ortho ? camera.getPos().add(new Vec3d(camera.getDiagonalPlane()).multiply(Mod.zoomMetric*Mod.getZoom()).multiply(coords.x).multiply(-0.72)).add(new Vec3d(camera.getVerticalPlane()).multiply(Mod.zoomMetric*Mod.getZoom()).multiply(coords.y).multiply(0.72)) :camera.getPos()).add(rayDir.multiply((1+Mod.getZoom())*Mod.zoomMetric*3F));
 
