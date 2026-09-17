@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- Fixed terrain sections disappearing from certain perspective camera angles.
+- Fixed underground blocks appearing directly in front of the camera.
+- Improved Embeddium compatibility while rotating or moving the perspective camera.
+
 ## 1.2.0
 
 - Fixed nearby entities disappearing when the perspective camera is moved away from the player.
