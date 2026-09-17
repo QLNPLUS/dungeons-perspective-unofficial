@@ -28,22 +28,14 @@ public class MixinPlugin  implements IMixinConfigPlugin {
             return false;
         }
 
-        if (mixinClassName.contains(".compat.embeddium.")
-                && !ModCompat.isModLoaded("embeddium")
-                && !ModCompat.isModLoaded("rubidium")
-                && !ModCompat.isClassPresent("me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager")) {
-            return false;
-        }
-
         if (mixinClassName.contains(".compat.")) {
             String[] parts = mixinClassName.split("\\.");
             for (int i = 0; i < parts.length; i++) {
                 if (parts[i].equals("compat") && i + 1 < parts.length) {
                     String modId = parts[i + 1];
-                    return ModCompat.isModLoaded(modId)
-                            || (modId.equals("embeddium")
-                            && ModCompat.isClassPresent(
-                            "me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager"));
+                    // Only inspect the loader's mod list here. Loading an Embeddium target class
+                    // during mixin preparation makes a later target mixin fail as "loaded too early".
+                    return ModCompat.isModLoaded(modId);
                 }
             }
             // This means there was a failure in parsing the mod id

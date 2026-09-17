@@ -21,7 +21,8 @@
     "KeyBindingMixin",
     "WorldRendererMixin",
     "compat.embeddium.EmbeddiumBlockRenderContextMixin",
-    "compat.embeddium.EmbeddiumBlockRendererMixin"
+    "compat.embeddium.EmbeddiumBlockRendererMixin",
+    "compat.embeddium.EmbeddiumRenderSectionManagerMixin"
 
   ],
   "server": [],
