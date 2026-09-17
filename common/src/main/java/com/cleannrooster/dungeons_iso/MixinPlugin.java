@@ -30,7 +30,8 @@ public class MixinPlugin  implements IMixinConfigPlugin {
 
         if (mixinClassName.contains(".compat.embeddium.")
                 && !ModCompat.isModLoaded("embeddium")
-                && !ModCompat.isModLoaded("rubidium")) {
+                && !ModCompat.isModLoaded("rubidium")
+                && !ModCompat.isClassPresent("me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager")) {
             return false;
         }
 
@@ -39,7 +40,10 @@ public class MixinPlugin  implements IMixinConfigPlugin {
             for (int i = 0; i < parts.length; i++) {
                 if (parts[i].equals("compat") && i + 1 < parts.length) {
                     String modId = parts[i + 1];
-                    return ModCompat.isModLoaded(modId);
+                    return ModCompat.isModLoaded(modId)
+                            || (modId.equals("embeddium")
+                            && ModCompat.isClassPresent(
+                            "me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager"));
                 }
             }
             // This means there was a failure in parsing the mod id

@@ -69,12 +69,11 @@ public final class GhostRenderer {
     private static final float MIN_ALPHA = 0.02F;
     /** Model quad lookup wants a Random; the value never matters for full blocks. */
     private static final Random RANDOM = Random.create();
-    /** Reused for the projection result. Render thread only. */
-    private static final float[] SCREEN = new float[2];
     /** Reused for corner projection. Render thread only. */
     private static final float[] CORNER = new float[2];
-    // Per-quad scratch, hoisted out of the frame loop. Render thread only.
-    private static final float[] alpha = new float[4];
+    // Per-quad scratch, hoisted out of the frame loop. Render thread only. These are the four
+    // corners, four edge midpoints and centre of a 2x2 subdivision.
+    private static final float[] nodeAlpha = new float[9];
     private static final float[] cornerX = new float[4];
     private static final float[] cornerY = new float[4];
     /** Floats per cached vertex: x, y, z (origin-relative), u, v, nx, ny, nz, r, g, b. */
@@ -240,52 +239,108 @@ public final class GhostRenderer {
                 continue;
             }
 
-            // The clear pocket has to be a property of the whole quad, not of its corners.
-            //
-            // Alpha is interpolated across a quad, so a block face near the camera — which can
-            // cover a large part of the screen — has all four corners outside the pocket, all of
-            // them opaque, while its middle sits right over the player. That is what was hiding
-            // the player: not blending order, but a face too big for a per-vertex gradient to
-            // hollow out. Dropping any quad whose screen extent reaches the pocket at all
-            // guarantees nothing is drawn there, whatever its size.
-            if (maxSX >= focusX - clearAt && minSX <= focusX + clearAt
-                    && maxSY >= focusY - clearAt && minSY <= focusY + clearAt) {
+            // A large baked face can cover the entire player even when all four corners are outside
+            // the clear pocket. Split it into four quads and sample the centre and edge midpoints,
+            // so the transparent area is real geometry rather than a corner-only interpolation.
+            nodeAlpha[0] = alphaAt(v, 0.0F, 0.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[1] = alphaAt(v, 0.5F, 0.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[2] = alphaAt(v, 1.0F, 0.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[3] = alphaAt(v, 1.0F, 0.5F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[4] = alphaAt(v, 1.0F, 1.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[5] = alphaAt(v, 0.5F, 1.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[6] = alphaAt(v, 0.0F, 1.0F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[7] = alphaAt(v, 0.0F, 0.5F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[8] = alphaAt(v, 0.5F, 0.5F, projector, cameraPos,
+                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+
+            if (nodeAlpha[0] <= MIN_ALPHA && nodeAlpha[1] <= MIN_ALPHA
+                    && nodeAlpha[2] <= MIN_ALPHA && nodeAlpha[3] <= MIN_ALPHA
+                    && nodeAlpha[4] <= MIN_ALPHA && nodeAlpha[5] <= MIN_ALPHA
+                    && nodeAlpha[6] <= MIN_ALPHA && nodeAlpha[7] <= MIN_ALPHA
+                    && nodeAlpha[8] <= MIN_ALPHA) {
                 continue;
             }
 
-            boolean visible = false;
-            for (int i = 0; i < 4; i++) {
-                float dx = cornerX[i] - focusX;
-                float dy = cornerY[i] - focusY;
-                alpha[i] = curve((float) Math.sqrt(dx * dx + dy * dy), clearAt, opaqueAt, maxAlpha);
-                if (alpha[i] > MIN_ALPHA) {
-                    visible = true;
-                }
-            }
-            if (!visible) {
-                continue;
-            }
-
-            for (int i = 0; i < 4; i++) {
-                int o = (v + i) * STRIDE;
-                consumer.vertex(entry.getPositionMatrix(),
-                                (float) (offX + geometry[o]),
-                                (float) (offY + geometry[o + 1]),
-                                (float) (offZ + geometry[o + 2]))
-                        .color(geometry[o + 8], geometry[o + 9], geometry[o + 10], alpha[i])
-                        .texture(geometry[o + 3], geometry[o + 4])
-                        .overlay(OverlayTexture.DEFAULT_UV)
-                        .light(lights[v + i])
-                        .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7])
-                        .next();
-            }
-            submittedVertices += 4;
+            submittedVertices += emitSubQuad(consumer, entry, v, offX, offY, offZ,
+                    0.0F, 0.0F, 0.5F, 0.5F, nodeAlpha[0], nodeAlpha[1], nodeAlpha[8], nodeAlpha[7]);
+            submittedVertices += emitSubQuad(consumer, entry, v, offX, offY, offZ,
+                    0.5F, 0.0F, 1.0F, 0.5F, nodeAlpha[1], nodeAlpha[2], nodeAlpha[3], nodeAlpha[8]);
+            submittedVertices += emitSubQuad(consumer, entry, v, offX, offY, offZ,
+                    0.5F, 0.5F, 1.0F, 1.0F, nodeAlpha[8], nodeAlpha[3], nodeAlpha[4], nodeAlpha[5]);
+            submittedVertices += emitSubQuad(consumer, entry, v, offX, offY, offZ,
+                    0.0F, 0.5F, 0.5F, 1.0F, nodeAlpha[7], nodeAlpha[8], nodeAlpha[5], nodeAlpha[6]);
         }
 
         // This pass is called outside vanilla's entity draw loop, so submit this layer explicitly.
         // Otherwise the ghost vertices can remain buffered until a later frame or render target.
         buffers.draw(ghostLayer);
         lastSubmittedVertexCount = submittedVertices;
+    }
+
+    private static int emitSubQuad(VertexConsumer consumer, MatrixStack.Entry entry, int firstVertex,
+                                   double offX, double offY, double offZ,
+                                   float s0, float t0, float s1, float t1,
+                                   float a0, float a1, float a2, float a3) {
+        if (a0 <= MIN_ALPHA && a1 <= MIN_ALPHA && a2 <= MIN_ALPHA && a3 <= MIN_ALPHA) {
+            return 0;
+        }
+        writeVertex(consumer, entry, firstVertex, offX, offY, offZ, s0, t0, a0);
+        writeVertex(consumer, entry, firstVertex, offX, offY, offZ, s1, t0, a1);
+        writeVertex(consumer, entry, firstVertex, offX, offY, offZ, s1, t1, a2);
+        writeVertex(consumer, entry, firstVertex, offX, offY, offZ, s0, t1, a3);
+        return 4;
+    }
+
+    private static void writeVertex(VertexConsumer consumer, MatrixStack.Entry entry, int firstVertex,
+                                    double offX, double offY, double offZ,
+                                    float s, float t, float alpha) {
+        float x = interpolate(firstVertex, s, t, 0);
+        float y = interpolate(firstVertex, s, t, 1);
+        float z = interpolate(firstVertex, s, t, 2);
+        int corner = (s >= 0.5F ? 1 : 0) + (t >= 0.5F ? 2 : 0);
+        int o = (firstVertex + corner) * STRIDE;
+        consumer.vertex(entry.getPositionMatrix(), (float) (offX + x), (float) (offY + y),
+                        (float) (offZ + z))
+                .color(interpolate(firstVertex, s, t, 8), interpolate(firstVertex, s, t, 9),
+                        interpolate(firstVertex, s, t, 10), alpha)
+                .texture(interpolate(firstVertex, s, t, 3), interpolate(firstVertex, s, t, 4))
+                .overlay(OverlayTexture.DEFAULT_UV)
+                .light(lights[firstVertex + corner])
+                .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7])
+                .next();
+    }
+
+    private static float alphaAt(int firstVertex, float s, float t, Projector projector,
+                                 Vec3d cameraPos, float focusX, float focusY,
+                                 float clearAt, float opaqueAt, float maxAlpha) {
+        double wx = originX + interpolate(firstVertex, s, t, 0);
+        double wy = originY + interpolate(firstVertex, s, t, 1);
+        double wz = originZ + interpolate(firstVertex, s, t, 2);
+        if (!projector.project(wx, wy, wz, cameraPos, CORNER)) {
+            return 0.0F;
+        }
+        float dx = CORNER[0] - focusX;
+        float dy = CORNER[1] - focusY;
+        return curve((float) Math.sqrt(dx * dx + dy * dy), clearAt, opaqueAt, maxAlpha);
+    }
+
+    private static float interpolate(int firstVertex, float s, float t, int component) {
+        float w0 = (1.0F - s) * (1.0F - t);
+        float w1 = s * (1.0F - t);
+        float w2 = s * t;
+        float w3 = (1.0F - s) * t;
+        return geometry[firstVertex * STRIDE + component] * w0
+                + geometry[(firstVertex + 1) * STRIDE + component] * w1
+                + geometry[(firstVertex + 2) * STRIDE + component] * w2
+                + geometry[(firstVertex + 3) * STRIDE + component] * w3;
     }
 
     // ------------------------------------------------------------------ geometry cache

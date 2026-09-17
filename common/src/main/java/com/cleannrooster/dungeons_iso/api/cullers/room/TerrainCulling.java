@@ -32,7 +32,8 @@ public final class TerrainCulling {
      * the vanilla hooks would never fire for terrain anyway — but they are also reachable from
      * other callers, and standing down explicitly is cheaper than reasoning about which.
      */
-    public static final boolean SODIUM = ModCompat.isSodiumLikeLoaded();
+    public static final boolean SODIUM = ModCompat.isSodiumLikeLoaded()
+            || ModCompat.isClassPresent("me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager");
 
     /**
      * Set once, on the client thread, by {@link #warmUp()}. Until then every query answers "not

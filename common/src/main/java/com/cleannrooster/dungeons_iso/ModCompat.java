@@ -21,7 +21,9 @@ public class ModCompat {
     public static boolean isModLoaded(String modId) {
         // Fabric
         try {
-            return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(modId);
+            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(modId)) {
+                return true;
+            }
         } catch (Throwable ignored) {}
         // Forge / NeoForge
         for (String className : new String[]{"net.minecraftforge.fml.ModList", "net.neoforged.fml.ModList"}) {
