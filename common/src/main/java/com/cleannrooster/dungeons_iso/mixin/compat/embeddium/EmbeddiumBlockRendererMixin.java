@@ -1,6 +1,7 @@
 package com.cleannrooster.dungeons_iso.mixin.compat.embeddium;
 
 import com.cleannrooster.dungeons_iso.api.cullers.room.TerrainCulling;
+import com.cleannrooster.dungeons_iso.compat.embeddium.EmbeddiumBlockRenderContextAccess;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildBuffers;
 import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext;

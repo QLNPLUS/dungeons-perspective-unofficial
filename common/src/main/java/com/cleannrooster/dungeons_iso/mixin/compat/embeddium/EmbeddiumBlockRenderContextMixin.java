@@ -1,5 +1,6 @@
 package com.cleannrooster.dungeons_iso.mixin.compat.embeddium;
 
+import com.cleannrooster.dungeons_iso.compat.embeddium.EmbeddiumBlockRenderContextAccess;
 import net.minecraft.block.BlockState;
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
