@@ -68,7 +68,7 @@ public class SodiumCompat {
         // the camera crosses a chunk boundary or changes direction.
         if (cullingStateChanged) {
             Box box = new Box(client.player.getEyePos(), client.gameRenderer.getCamera().getPos())
-                    .expand(16.0, 16.0, 16.0);
+                    .expand(32.0, 32.0, 32.0);
             scheduleRebuildForBlockArea(box);
         }
 
@@ -199,17 +199,22 @@ public class SodiumCompat {
         public final long startTime;
         public final long endTime;
         public final float zoom;
+        public final float cameraYaw;
+        public final float cameraPitch;
         public final List<BlockPos> floodBlocks;
         public final Long2IntOpenHashMap floodColumnMinY;
 
         private CullingSnapshot(Vec3d cameraPos, Vec3d entityPos, long worldTime, long startTime,
-                                long endTime, float zoom, List<BlockPos> floodBlocks) {
+                                long endTime, float zoom, float cameraYaw, float cameraPitch,
+                                List<BlockPos> floodBlocks) {
             this.cameraPos = cameraPos;
             this.entityPos = entityPos;
             this.worldTime = worldTime;
             this.startTime = startTime;
             this.endTime = endTime;
             this.zoom = zoom;
+            this.cameraYaw = cameraYaw;
+            this.cameraPitch = cameraPitch;
             this.floodBlocks = List.copyOf(floodBlocks);
             this.floodColumnMinY = new Long2IntOpenHashMap();
             this.floodColumnMinY.defaultReturnValue(Integer.MAX_VALUE);
@@ -232,6 +237,8 @@ public class SodiumCompat {
                     Mod.startTime,
                     Mod.endTime,
                     Mod.zoom,
+                    camera.getYaw(),
+                    camera.getPitch(),
                     floodBlocks
             );
         }
@@ -239,9 +246,21 @@ public class SodiumCompat {
         private boolean matches(CullingSnapshot other) {
             return cameraPos.squaredDistanceTo(other.cameraPos) < 0.25
                     && entityPos.squaredDistanceTo(other.entityPos) < 0.25
+                    && angleDifference(cameraYaw, other.cameraYaw) < 0.5F
+                    && Math.abs(cameraPitch - other.cameraPitch) < 0.5F
                     && zoom == other.zoom
                     && transitionTicks() == other.transitionTicks()
                     && floodBlocks.equals(other.floodBlocks);
+        }
+
+        private static float angleDifference(float first, float second) {
+            float difference = (first - second) % 360.0F;
+            if (difference > 180.0F) {
+                difference -= 360.0F;
+            } else if (difference < -180.0F) {
+                difference += 360.0F;
+            }
+            return Math.abs(difference);
         }
 
         private long transitionTicks() {

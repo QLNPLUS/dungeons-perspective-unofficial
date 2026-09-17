@@ -43,14 +43,6 @@ import java.util.Optional;
 public abstract class MixinBlockRenderer  {
 
 
-    @Inject(at = @At("HEAD"), method = "isFaceVisible", cancellable = true,remap = false)
-
-    private void isFaceVisibleDungeons(BlockRenderContext ctx, Direction face, CallbackInfoReturnable<Boolean> ci) {
-        if (Mod.enabled) {
-            ci.setReturnValue(true);
-        }
-
-    }
     @Inject(at = @At("HEAD"), method = "renderModel", cancellable = true,remap = false)
 
     public void renderModel(BlockRenderContext ctx, ChunkBuildBuffers buffers, CallbackInfo ci) {

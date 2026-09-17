@@ -97,6 +97,8 @@ public class GenericCuller3 implements BlockCuller {
                 var theta = angleBetween(vec8, vec7);
                 var phi = angleBetween(vec1, vec2);
                 var chi = angleBetween(vec6, new Vec3d(0, 1, 0));
+                boolean inCameraCorridor = isInCameraCorridor(
+                        blockPos.toCenterPos(), camera.getPos(), cameraEntity.getEyePos(), 1.5D);
                 long elapsedTicks = Math.max(0L, cameraEntity.getWorld().getTime() - Mod.startTime);
                 long transitionTicks = Math.min(20L, Math.min(elapsedTicks, Math.max(0L, Mod.endTime)));
                 var factor = 0.05 * transitionTicks * 45 * Math.pow(0.9, Mod.zoom);
@@ -108,7 +110,7 @@ public class GenericCuller3 implements BlockCuller {
                         && blockPos.toCenterPos().getY() > cameraEntity.getPos().getY() + 1
                         && theta < factor
                         && chi < 60
-                        && phi < 45;
+                        && (phi < 45 || inCameraCorridor);
             } else {
                 return false;
             }
@@ -135,6 +137,8 @@ public class GenericCuller3 implements BlockCuller {
         var theta = angleBetween(vec8, vec7);
         var phi = angleBetween(vec1, vec2);
         var chi = angleBetween(vec6, new Vec3d(0, 1, 0));
+        boolean inCameraCorridor = isInCameraCorridor(
+                blockPos.toCenterPos(), cameraPos, entityPos.add(0.0D, 1.62D, 0.0D), 1.5D);
         long elapsedTicks = Math.max(0L, snapshot.worldTime - snapshot.startTime);
         long transitionTicks = Math.min(20L, Math.min(elapsedTicks, Math.max(0L, snapshot.endTime)));
         var factor = 0.05 * transitionTicks * 45 * Math.pow(0.9, snapshot.zoom);
@@ -143,7 +147,24 @@ public class GenericCuller3 implements BlockCuller {
                 && blockPos.toCenterPos().getY() > entityPos.getY() + 1
                 && theta < factor
                 && chi < 60
-                && phi < 45;
+                && (phi < 45 || inCameraCorridor);
+    }
+
+    /** Returns true when a block lies in the narrow segment between the displaced camera and player. */
+    private static boolean isInCameraCorridor(Vec3d block, Vec3d camera, Vec3d entity, double radius) {
+        Vec3d segment = entity.subtract(camera);
+        double lengthSquared = segment.lengthSquared();
+        if (lengthSquared < 1.0E-6D) {
+            return false;
+        }
+
+        double along = block.subtract(camera).dotProduct(segment) / lengthSquared;
+        if (along <= 0.0D || along >= 1.0D) {
+            return false;
+        }
+
+        Vec3d closest = camera.add(segment.multiply(along));
+        return block.squaredDistanceTo(closest) <= radius * radius;
     }
     private static <T, C> T raycast(Vec3d start, Vec3d end, C context, BiFunction<C, BlockPos, T> blockHitFactory, Function<C, T> missFactory) {
         if (start.equals(end)) {

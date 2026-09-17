@@ -14,7 +14,10 @@ public class Ortho {
         return new Matrix4f().setOrtho(
                 -width, width,
                 -height, height,
-                -4*Mod.zoom/4, 1000
+                // A negative near plane lets geometry behind the camera enter the orthographic
+                // frustum. That is especially visible underground, where nearby ceilings and
+                // walls can then appear in front of the scene.
+                2.0F, 1000
         );
     }
 }

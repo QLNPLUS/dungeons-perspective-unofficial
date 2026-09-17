@@ -47,13 +47,16 @@ public class RenderSectionManagerMixin {
 
         }
     }
-/*    @Inject(at = @At("HEAD"), method = "shouldUseOcclusionCulling", cancellable = true,remap = false)
-
-    private void shouldUseOcclusionCullingXIV(Camera camera, boolean spectator,CallbackInfoReturnable<Boolean> cir) {
-        if(Mod.enabled){
+    @Inject(at = @At("HEAD"), method = "shouldUseOcclusionCulling", cancellable = true, remap = false)
+    private void dungeons$disableStaleOcclusion(Camera camera, boolean spectator,
+                                                  CallbackInfoReturnable<Boolean> cir) {
+        // The perspective culler changes the blocks seen by the section compiler. Embeddium's
+        // visibility graph can still describe the previous camera angle and hide whole chains of
+        // sections, so it cannot be trusted while this mode is active.
+        if (Mod.enabled) {
             cir.setReturnValue(false);
         }
-    }*/
+    }
   /*      @Inject(at = @At("HEAD"), method = "isSectionVisible", cancellable = true,remap = false)
     public void isSectionVisibleXIV(int x, int y, int z, CallbackInfoReturnable<Boolean> cir) {
         if(Mod.enabled){
