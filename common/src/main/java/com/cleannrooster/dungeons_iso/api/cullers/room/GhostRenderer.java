@@ -26,6 +26,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joml.Vector3d;
 
 import java.util.List;
@@ -60,6 +62,8 @@ import java.util.List;
  * identity changes, and the per-frame path does nothing but project and write vertices.
  */
 public final class GhostRenderer {
+
+    private static final Logger LOGGER = LogManager.getLogger("dungeons_iso/ghost");
 
     /** Below this a quad contributes nothing worth submitting. */
     private static final float MIN_ALPHA = 0.02F;
@@ -100,13 +104,16 @@ public final class GhostRenderer {
 
     /** Size of the current bake, for the debug report. */
     public static volatile int lastVertexCount;
+    /** Number of vertices actually submitted by the last render pass, for the debug report. */
+    public static volatile int lastSubmittedVertexCount;
+    private static volatile boolean renderErrorLogged;
 
     private GhostRenderer() {
     }
 
     /**
-     * Called from the world render, after terrain. {@code matrices} is not camera-relative here, so
-     * positions are offset by the camera manually — matching how the rest of this mixin draws.
+     * Called from the Forge world-render stage after terrain. The matrix stack carries the camera
+     * projection and rotation; positions are offset by the camera manually to match vanilla chunks.
      */
     public static void render(MatrixStack matrices, VertexConsumerProvider.Immediate buffers,
                               Camera camera, GameRenderer gameRenderer) {
@@ -121,6 +128,8 @@ public final class GhostRenderer {
             invalidate();
             return;
         }
+
+        lastSubmittedVertexCount = 0;
 
         float maxAlpha = Math.max(0F, Math.min(1F, Config.GSON.instance().ghostMaxAlpha));
         if (maxAlpha <= MIN_ALPHA) {
@@ -183,6 +192,7 @@ public final class GhostRenderer {
         float halfWidth = client.getWindow().getFramebufferHeight() <= 0 ? 1.0F
                 : (float) client.getWindow().getFramebufferWidth()
                         / client.getWindow().getFramebufferHeight();
+        int submittedVertices = 0;
 
         for (int v = 0; v + 3 < vertexCount; v += 4) {
             int base = v * STRIDE;
@@ -266,14 +276,16 @@ public final class GhostRenderer {
                         .texture(geometry[o + 3], geometry[o + 4])
                         .overlay(OverlayTexture.DEFAULT_UV)
                         .light(lights[v + i])
-                        .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7]);
+                        .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7])
+                        .next();
             }
+            submittedVertices += 4;
         }
 
-        // DebugRenderer's caller only flushes whichever layer happens to be current after all
-        // debug overlays have run. Submit this layer explicitly, otherwise the ghost vertices can
-        // remain buffered and never reach the translucent pass.
+        // This pass is called outside vanilla's entity draw loop, so submit this layer explicitly.
+        // Otherwise the ghost vertices can remain buffered until a later frame or render target.
         buffers.draw(ghostLayer);
+        lastSubmittedVertexCount = submittedVertices;
     }
 
     // ------------------------------------------------------------------ geometry cache
@@ -283,10 +295,19 @@ public final class GhostRenderer {
         cachedMask = null;
         cachedSnapshot = null;
         vertexCount = 0;
+        lastSubmittedVertexCount = 0;
         // Released rather than merely ignored: at the vertex ceiling these are several megabytes,
         // and they are static, so holding them keeps the mask and snapshot alive with them.
         geometry = EMPTY_FLOATS;
         lights = EMPTY_INTS;
+    }
+
+    /** Keeps a renderer failure from disappearing behind a loader/event-bus boundary. */
+    public static void reportRenderFailure(Throwable error) {
+        if (!renderErrorLogged) {
+            renderErrorLogged = true;
+            LOGGER.error("Ghost block rendering failed; disabling this frame", error);
+        }
     }
 
     /** Rebakes only when the cull set has actually been replaced, or the cache has gone stale. */
@@ -419,9 +440,9 @@ public final class GhostRenderer {
                 int stride = data.length / 4;
 
                 Direction face = quad.getFace();
-                float nx = face.getOffsetX();
-                float ny = face.getOffsetY();
-                float nz = face.getOffsetZ();
+                float nx = face == null ? 0.0F : face.getOffsetX();
+                float ny = face == null ? 0.0F : face.getOffsetY();
+                float nz = face == null ? 0.0F : face.getOffsetZ();
 
                 // Grass and foliage textures are stored greyscale and coloured at render time from
                 // the biome, so a quad emitted at flat white comes out grey. Vanilla multiplies in
@@ -437,7 +458,7 @@ public final class GhostRenderer {
                 }
                 // Directional shading, the same top-bright/side-dark falloff the chunk mesh gets.
                 // Without it the ghost is flat and reads as a decal rather than as the world.
-                float shade = this.world.getBrightness(face, quad.hasShade());
+                float shade = face == null ? 1.0F : this.world.getBrightness(face, quad.hasShade());
                 tintR *= shade;
                 tintG *= shade;
                 tintB *= shade;

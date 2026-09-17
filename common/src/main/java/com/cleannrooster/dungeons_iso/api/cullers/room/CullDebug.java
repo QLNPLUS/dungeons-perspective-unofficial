@@ -64,6 +64,7 @@ public final class CullDebug {
                 + " fellback=" + sight.lastShapesFellBack
                 + " culled=" + sight.lastShapesCulled + " " + sight.lastShapeClasses
                 + " | ghost verts=" + GhostRenderer.lastVertexCount
+                + "/submitted=" + GhostRenderer.lastSubmittedVertexCount
                 + " | queue=" + SectionRebuildQueue.INSTANCE.size();
 
         if (healthy && summary.equals(lastLogged)) {

@@ -1,8 +1,11 @@
 package com.cleannrooster.dungeons_iso.forge;
 
 import com.cleannrooster.dungeons_iso.ClientInit;
+import com.cleannrooster.dungeons_iso.api.cullers.room.GhostRenderer;
+import net.minecraft.client.MinecraftClient;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -34,6 +37,32 @@ public final class ForgeMod {
         @SubscribeEvent
         public static void clientSetup(FMLClientSetupEvent event) {
             event.enqueueWork(ClientInit::init);
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+    public static final class ClientRenderEvents {
+        private ClientRenderEvents() {
+        }
+
+        @SubscribeEvent
+        public static void renderGhostBlocks(RenderLevelStageEvent event) {
+            if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
+                return;
+            }
+
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.world == null) {
+                return;
+            }
+
+            try {
+                GhostRenderer.render(event.getPoseStack(),
+                        client.getBufferBuilders().getEntityVertexConsumers(),
+                        event.getCamera(), client.gameRenderer);
+            } catch (Throwable error) {
+                GhostRenderer.reportRenderFailure(error);
+            }
         }
     }
 }
