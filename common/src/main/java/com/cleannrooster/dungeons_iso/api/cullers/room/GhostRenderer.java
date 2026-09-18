@@ -14,12 +14,14 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
@@ -67,6 +69,29 @@ public final class GhostRenderer {
 
     /** Below this a quad contributes nothing worth submitting. */
     private static final float MIN_ALPHA = 0.02F;
+    /**
+     * Ghost geometry must test against existing terrain, but must not write its own depth. It is
+     * drawn before entities so the entity pass can cover it when a removed face lies in front of an
+     * entity. The stock entity-translucent layer writes ALL_MASK in 1.20.1, which would keep that
+     * entity from passing the later depth test.
+     */
+    private static final RenderLayer GHOST_LAYER = RenderLayer.of(
+            "dungeons_iso_ghost",
+            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
+            VertexFormat.DrawMode.QUADS,
+            262_144,
+            true,
+            true,
+            RenderLayer.MultiPhaseParameters.builder()
+                    .texture(RenderPhase.BLOCK_ATLAS_TEXTURE)
+                    .program(RenderPhase.ENTITY_TRANSLUCENT_PROGRAM)
+                    .transparency(RenderPhase.TRANSLUCENT_TRANSPARENCY)
+                    .depthTest(RenderPhase.LEQUAL_DEPTH_TEST)
+                    .cull(RenderPhase.DISABLE_CULLING)
+                    .lightmap(RenderPhase.ENABLE_LIGHTMAP)
+                    .overlay(RenderPhase.ENABLE_OVERLAY_COLOR)
+                    .writeMaskState(RenderPhase.COLOR_MASK)
+                    .build(false));
     /** Model quad lookup wants a Random; the value never matters for full blocks. */
     private static final Random RANDOM = Random.create();
     /** Reused for corner projection. Render thread only. */
@@ -181,8 +206,7 @@ public final class GhostRenderer {
         float focusY = screen[1];
         lastVertexCount = vertexCount;
 
-        RenderLayer ghostLayer = RenderLayer.getEntityTranslucent(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
-        VertexConsumer consumer = buffers.getBuffer(ghostLayer);
+        VertexConsumer consumer = buffers.getBuffer(GHOST_LAYER);
 
         double offX = originX - cameraPos.x;
         double offY = originY - cameraPos.y;
@@ -283,7 +307,7 @@ public final class GhostRenderer {
 
         // This pass is called outside vanilla's entity draw loop, so submit this layer explicitly.
         // Otherwise the ghost vertices can remain buffered until a later frame or render target.
-        buffers.draw(ghostLayer);
+        buffers.draw(GHOST_LAYER);
         lastSubmittedVertexCount = submittedVertices;
     }
 
