@@ -134,10 +134,12 @@ public final class GhostRenderer {
         if (maxAlpha <= MIN_ALPHA) {
             return;
         }
-        float clearAt = Math.max(0F, Config.GSON.instance().ghostClearScreen);
+        float rangeScale = Math.max(0.5F, Math.min(3.0F, Config.GSON.instance().ghostScreenRangeScale));
+        float clearAt = Math.max(0F, Config.GSON.instance().ghostClearScreen) * rangeScale;
         // The ramp needs somewhere to happen, so the far edge is always kept ahead of the near one
-        // however the two are configured.
-        float opaqueAt = Math.max(clearAt + 0.01F, Config.GSON.instance().ghostOpaqueScreen);
+        // however the two are configured. Both distances scale together to preserve the curve.
+        float opaqueAt = Math.max(clearAt + 0.01F,
+                Math.max(0F, Config.GSON.instance().ghostOpaqueScreen) * rangeScale);
 
         // Chunk meshes are rebuilt in batches. Keep the published cull geometry available while
         // that queue drains, otherwise the old invisible mesh has no translucent fallback for a

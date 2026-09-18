@@ -47,7 +47,9 @@ public final class ForgeMod {
 
         @SubscribeEvent
         public static void renderGhostBlocks(RenderLevelStageEvent event) {
-            if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
+            // Draw the translucent shell before entities, so entity models render over it instead
+            // of being dimmed or hidden when a ghost face lies between them and the camera.
+            if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS) {
                 return;
             }
 

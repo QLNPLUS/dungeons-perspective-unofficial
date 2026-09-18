@@ -182,6 +182,8 @@ public class Config {
     public float ghostClearScreen = 0.20F;
     /** Screen distance, in half screen heights, at which the ghost reaches full opacity. */
     public float ghostOpaqueScreen = 1.40F;
+    /** Multiplier for both ghost screen-space radii; increase to widen the faded volume. */
+    public float ghostScreenRangeScale = 1.50F;
     /** Opacity the ghost tops out at. Below 1 it always reads as ghosted rather than solid. */
     public float ghostMaxAlpha = 0.90F;
     /** Most shapes removed at once. */
