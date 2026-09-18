@@ -92,11 +92,10 @@ public abstract class GameRendererMixin {
             Mod.factor = Math.max(0F,( 1F-Math.max(Mod.zoomTime , 0F)))*(float) ((float) Mod.getZoom()*Mod.zoomMetric - Math.max(MinecraftClient.getInstance().cameraEntity.getHeight(),result.getPos().distanceTo(MinecraftClient.getInstance().cameraEntity.getEyePos())));
             Mod.factor2 = net.minecraft.util.math.MathHelper.clamp((Mod.frustrumZoom+(Mod.shouldReload ?1F : -1F )*com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta())/20F,0.1F,1F) *(float) ((float) Mod.getZoom()*Mod.zoomMetric-Mod.clipMetric -0.15F );
 
-            // clipMetric is zero while the first world frame is being prepared. JOML accepts a
-            // zero near plane, but the resulting projection has an invalid frustum. Vanilla then
-            // loops forever in Frustum#coverBoxAroundSetPosition trying to expand that frustum,
-            // which presents as the client hanging on the world-login screen.
-            float nearPlane = Math.max(0.05F, 0.05F * Mod.clipMetric);
+            // Keep the near plane at vanilla's distance. The camera can move close to the player
+            // while orbiting or interpolating; scaling this plane by clipMetric raised it as high
+            // as 1.6 blocks and clipped the player's model at some camera angles.
+            float nearPlane = 0.05F;
             cir.setReturnValue(matrix4f.perspective(
                     (float) (fov * 0.01745329238474369),
                     (float) MinecraftClient.getInstance().getWindow().getFramebufferWidth()
