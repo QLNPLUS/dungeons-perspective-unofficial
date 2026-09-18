@@ -18,6 +18,7 @@ public final class Config {
 
     public boolean onStartup = true;
     public boolean force = false;
+    public boolean allowManualToggle = true;
     public boolean scrollWheelZoom = true;
     public boolean dynamicCamera = false;
     public boolean forceNoDefer = false;

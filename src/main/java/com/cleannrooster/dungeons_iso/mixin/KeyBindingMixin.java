@@ -75,6 +75,12 @@ public class KeyBindingMixin {
 
     public void wasPressedXIV(CallbackInfoReturnable<Boolean> cir) {
 
+        if (((KeyBinding) (Object) this).equals(MinecraftClient.getInstance().options.togglePerspectiveKey)
+                && Mod.enabled && !Config.GSON.instance().allowManualToggle) {
+            cir.setReturnValue(false);
+            return;
+        }
+
          if (((KeyBinding) (Object) this).equals(MinecraftClient.getInstance().options.useKey) && Mod.enabled && Config.GSON.instance().clickToMove) {
 
             if (ClientInit.interact.wasPressed() ){

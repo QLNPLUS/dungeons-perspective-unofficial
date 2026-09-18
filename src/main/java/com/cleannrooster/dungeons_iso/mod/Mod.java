@@ -47,6 +47,8 @@ public class Mod {
     }
 
     public static boolean enabled = false;
+    /** Prevents the startup option from toggling the perspective more than once per client session. */
+    public static boolean startupHandled;
     public static Perspective lastPerspective;
     public static HitResult crosshairTarget;
     public static HitResult prevCrosshairTarget;

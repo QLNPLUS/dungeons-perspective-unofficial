@@ -409,43 +409,18 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             }});
         }
 
-        if (Config.GSON.instance().force || (Config.GSON.instance().onStartup && !first) ||ClientInit.toggleBinding.wasPressed() || (
-                client.options.togglePerspectiveKey.isPressed() && Mod.enabled
-        )) {
-            if (!Config.GSON.instance().force && Mod.enabled) {
-                Mod.enabled = false;
-                SodiumCompat.stop();
-
-                client.options.setPerspective(Mod.lastPerspective);
-                Util.debug("Disabled Minecraft XIV");
-                if(client.currentScreen == null) {
-                    InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_DISABLED,client.mouse.getX(), client.mouse.getY());
-
-                }
-                client.mouse.lockCursor();
-
-            } else
-                if(!Mod.enabled && client.world != null && client.player != null) {
-                    if (Config.GSON.instance().onStartup) {
-                        first = true;
-                    }
-                    Mod.enabled = true;
-
-                    Mod.lastPerspective = client.options.getPerspective();
-                    client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-                    if (Mod.lastPerspective == Perspective.THIRD_PERSON_FRONT) {
-                        Mod.yaw = ((180 + client.player.getYaw() + 180) % 360) - 180;
-                        Mod.pitch = -client.player.getPitch();
-                    } else {
-                        Mod.yaw = client.player.getYaw();
-                        Mod.pitch = client.player.getPitch();
-                    }
-                    Util.debug("Enabled Minecraft XIV");
-                    client.mouse.lockCursor();
-
-                    InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_NORMAL, client.mouse.getX(), client.mouse.getY());
-                }
-
+        boolean customTogglePressed = ClientInit.toggleBinding.wasPressed();
+        boolean manualToggleRequested = Config.GSON.instance().allowManualToggle
+                && (customTogglePressed
+                || (client.options.togglePerspectiveKey.isPressed() && Mod.enabled));
+        if (Config.GSON.instance().force
+                || (Config.GSON.instance().onStartup && !Mod.startupHandled)
+                || manualToggleRequested) {
+            if (manualToggleRequested && Mod.enabled && !Config.GSON.instance().force) {
+                DungeonsPerspectiveApi.setEnabled(false);
+            } else if (!Mod.enabled && client.world != null && client.player != null) {
+                DungeonsPerspectiveApi.setEnabled(true);
+            }
         }
 
         if (ClientInit.zoomInBinding.wasPressed()) {
