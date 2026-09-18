@@ -79,7 +79,7 @@ public final class GhostRenderer {
     /** Floats per cached vertex: x, y, z (origin-relative), u, v, nx, ny, nz, r, g, b. */
     private static final int STRIDE = 11;
     /** Safety ceiling on cached geometry, so a pathological cull set cannot allocate without bound. */
-    private static final int MAX_VERTICES = 120_000;
+    private static final int MAX_VERTICES = 480_000;
     /**
      * Rebake at least this often, so edits to the world do not leave the ghost stale forever.
      *
@@ -620,7 +620,7 @@ public final class GhostRenderer {
             return 0F;
         }
         float t = Math.min(1.0F, (dist - clearAt) / (opaqueAt - clearAt));
-        // Smoothstep, so neither end of the ramp has a visible rim.
+        // Match the original 1.21.1 fade ramp while keeping a soft transition at both ends.
         return maxAlpha * t * t * (3.0F - 2.0F * t);
     }
 }

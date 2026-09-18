@@ -3,6 +3,7 @@ package com.cleannrooster.dungeons_iso.mixin.compat.embeddium;
 import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.api.cullers.room.TerrainCulling;
 import com.cleannrooster.dungeons_iso.mod.Mod;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,10 +21,29 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(targets = "me.jellysquid.mods.sodium.client.render.chunk.RenderSectionManager", remap = false)
 public abstract class EmbeddiumRenderSectionManagerMixin {
 
+    @Inject(method = "getEffectiveRenderDistance", at = @At("RETURN"), cancellable = true, remap = false)
+    private void dungeons$extendEffectiveRenderDistance(CallbackInfoReturnable<Float> cir) {
+        cir.setReturnValue(dungeons$cameraAwareRenderDistance(cir.getReturnValue()));
+    }
+
+    @Inject(method = "getRenderDistance", at = @At("RETURN"), cancellable = true, remap = false)
+    private void dungeons$extendRenderDistance(CallbackInfoReturnable<Float> cir) {
+        cir.setReturnValue(dungeons$cameraAwareRenderDistance(cir.getReturnValue()));
+    }
+
+    private float dungeons$cameraAwareRenderDistance(float distance) {
+        if (!Mod.enabled || MinecraftClient.getInstance().player == null
+                || !Config.GSON.instance().renderDistanceCap) {
+            return distance;
+        }
+        float cameraReach = Mod.getZoom() * Mod.zoomMetric;
+        return Math.max(distance, (cameraReach + 64.0F) * 1.15F);
+    }
+
     @Inject(method = "shouldUseOcclusionCulling", at = @At("HEAD"), cancellable = true, remap = false)
     private void dungeons$disableStaleOcclusion(Camera camera, boolean spectator,
                                                   CallbackInfoReturnable<Boolean> cir) {
-        if (Mod.enabled && !TerrainCulling.idle()
+        if (Mod.enabled && Mod.shouldRebuild() && !TerrainCulling.idle()
                 && (Config.GSON.instance().disableOcclusionCulling
                 || Config.GSON.instance().roomCulling
                 || Config.GSON.instance().shapeCulling)) {

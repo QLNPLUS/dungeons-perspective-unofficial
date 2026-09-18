@@ -3,11 +3,14 @@ package com.cleannrooster.dungeons_iso;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Set;
 
 public class MixinPlugin  implements IMixinConfigPlugin {
+    private static final Logger LOGGER = LogManager.getLogger("dungeons_iso/mixins");
     /** The old net.caffeinemc Sodium sources remain disabled; Embeddium has its own hooks below. */
     private static final boolean ENABLE_SODIUM_COMPAT = false;
 
@@ -33,9 +36,16 @@ public class MixinPlugin  implements IMixinConfigPlugin {
             for (int i = 0; i < parts.length; i++) {
                 if (parts[i].equals("compat") && i + 1 < parts.length) {
                     String modId = parts[i + 1];
-                    // Only inspect the loader's mod list here. Loading an Embeddium target class
-                    // during mixin preparation makes a later target mixin fail as "loaded too early".
-                    return ModCompat.isModLoaded(modId);
+                    // The Forge mod list is not ready during early mixin selection. Probe the
+                    // target resource instead; Class.forName would define it too early.
+                    boolean loaded = modId.equals("embeddium")
+                            ? ModCompat.isClassResourcePresent(targetClassName)
+                            : ModCompat.isModLoaded(modId);
+                    if (modId.equals("embeddium")) {
+                        LOGGER.debug("Embeddium compatibility mixins {}",
+                                loaded ? "enabled" : "disabled: target class resource not found");
+                    }
+                    return loaded;
                 }
             }
             // This means there was a failure in parsing the mod id

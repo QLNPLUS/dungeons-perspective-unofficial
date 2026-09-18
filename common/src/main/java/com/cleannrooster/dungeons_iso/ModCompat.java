@@ -53,6 +53,17 @@ public class ModCompat {
         }
     }
 
+    /** Checks optional target availability without defining it during Mixin selection. */
+    public static boolean isClassResourcePresent(String className) {
+        String resource = className.replace('.', '/') + ".class";
+        ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader ownLoader = ModCompat.class.getClassLoader();
+        return (contextLoader != null && contextLoader.getResource(resource) != null)
+                || (ownLoader != null && ownLoader != contextLoader
+                    && ownLoader.getResource(resource) != null)
+                || ClassLoader.getSystemResource(resource) != null;
+    }
+
     /** The loader's config directory used by the JSON config backend. */
     public static java.nio.file.Path getConfigDir() {
         // Fabric
