@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- Added a Java/KubeJS API for reading and changing the Dungeons Perspective state.
+- Added an option to disable manual F4/F5 perspective switching while keeping API control available.
+- Added complete perspective state restoration when switching through the API.
+
 ## 1.3.0
 
 - Fixed terrain sections disappearing from certain perspective camera angles.
