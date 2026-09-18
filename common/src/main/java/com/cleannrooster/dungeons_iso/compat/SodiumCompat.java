@@ -197,7 +197,15 @@ public class SodiumCompat {
             return;
         }
 
-        Vec3d camera = Mod.preMod;
+        // Use the position actually used by the renderer. Mod.preMod is the pre-modulation
+        // position calculated while Camera.update is still in progress and can lie on the
+        // opposite side of the player from the final camera. Starting the sightline there makes
+        // the scanner remove blocks behind the player instead of blocks between the camera and it.
+        Camera renderCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        if (renderCamera == null) {
+            return;
+        }
+        Vec3d camera = renderCamera.getPos();
         if (camera == null || camera.equals(Vec3d.ZERO)) {
             return;
         }

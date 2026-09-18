@@ -22,6 +22,7 @@
     "WorldRendererMixin",
     "compat.embeddium.EmbeddiumBlockRenderContextMixin",
     "compat.embeddium.EmbeddiumBlockRendererMixin",
+    "EntityRenderDispatcherMixin",
     "compat.embeddium.EmbeddiumRenderSectionManagerMixin"
 
   ],

@@ -77,6 +77,27 @@ public class GenericCuller3 implements BlockCuller {
      * Within 5 blocks of the origin, uses a cone (linear taper to 0).
      * Beyond 5 blocks, uses the full cylinder radius.
      */
+    private static double axisProjection(Vec3d point, Vec3d axisOrigin, Vec3d axis, double axisLenSq) {
+        if (!Double.isFinite(axisLenSq) || axisLenSq <= 1.0E-6) {
+            return Double.NaN;
+        }
+        return point.subtract(axisOrigin).dotProduct(axis) / Math.sqrt(axisLenSq);
+    }
+
+    /**
+     * True only for the finite camera-to-player segment. The old infinite-axis test also accepted
+     * blocks behind the player because a negative projection was squared into a positive radius.
+     */
+    private static boolean isOnCameraPlayerSegment(Vec3d point, Vec3d playerSide,
+                                                    Vec3d cameraSide, double axisLenSq) {
+        double projection = axisProjection(point, playerSide, cameraSide, axisLenSq);
+        if (!Double.isFinite(projection)) {
+            return false;
+        }
+        double axisLength = Math.sqrt(axisLenSq);
+        return projection >= 0.0 && projection <= axisLength;
+    }
+
     private static double effectiveRadiusSq(Vec3d toPoint, Vec3d axis, double axisLenSq, double radius) {
         double axisLen = Math.sqrt(axisLenSq);
         double projDist = (toPoint.x * axis.x + toPoint.y * axis.y + toPoint.z * axis.z) / axisLen;
@@ -109,15 +130,19 @@ public class GenericCuller3 implements BlockCuller {
             return false;
         }
 
-        // Close to camera always culls
-        if (Mod.preMod.distanceTo(blockCenter) < 5) {
-            return true;
+        Vec3d cameraPos = camera.getPos();
+        // Cylinder/cone axis: from fromPos toward the actual rendered camera. Keep it finite so
+        // blocks on the far side of the player are never treated as occluders.
+        Vec3d axis = cameraPos.subtract(fromCenter);
+        double axisLenSq = axis.lengthSquared();
+        if (!isOnCameraPlayerSegment(blockCenter, fromCenter, axis, axisLenSq)) {
+            return false;
         }
 
-        // Cylinder/cone axis: from fromPos toward camera
-        Vec3d axis = Mod.preMod.subtract(fromCenter);
-        double axisLenSq = axis.lengthSquared();
-        if (axisLenSq == 0) return false;
+        // Close to camera always culls, but only after the segment check above.
+        if (cameraPos.distanceTo(blockCenter) < 5) {
+            return true;
+        }
 
         double radius = getAnimatedRadius(cameraEntity);
         double perpDistSq = perpDistSqToAxis(blockCenter, fromCenter, axis, axisLenSq);
@@ -142,15 +167,19 @@ public class GenericCuller3 implements BlockCuller {
             return false;
         }
 
-        // Close to camera always culls
-        if (Mod.preMod.distanceTo(blockCenter) < 5) {
-            return true;
+        Vec3d cameraPos = camera.getPos();
+        // Cylinder/cone axis: from player toward the actual rendered camera. This is a finite
+        // segment, not an infinite line, so the player's far side remains untouched.
+        Vec3d axis = cameraPos.subtract(entityPos);
+        double axisLenSq = axis.lengthSquared();
+        if (!isOnCameraPlayerSegment(blockCenter, entityPos, axis, axisLenSq)) {
+            return false;
         }
 
-        // Cylinder/cone axis: from player toward camera
-        Vec3d axis = Mod.preMod.subtract(entityPos);
-        double axisLenSq = axis.lengthSquared();
-        if (axisLenSq == 0) return false;
+        // Close to camera always culls, but only after the segment check above.
+        if (cameraPos.distanceTo(blockCenter) < 5) {
+            return true;
+        }
 
         double radius = getAnimatedRadius(cameraEntity);
         double perpDistSq = perpDistSqToAxis(blockCenter, entityPos, axis, axisLenSq);
