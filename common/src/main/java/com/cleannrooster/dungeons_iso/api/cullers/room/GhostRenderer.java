@@ -177,7 +177,8 @@ public final class GhostRenderer {
         // Keep the transparent pocket deliberately small in open terrain. Underground, the
         // sightline scanner has separately confirmed a covered local space, so allow a modestly
         // wider pocket there without restoring the old large black opening.
-        float clearLimit = SightlineScanner.INSTANCE.lastUnderground ? 0.18F : 0.12F;
+        float clearLimit = SightlineScanner.INSTANCE.lastBroadUnderground ? 0.22F
+                : SightlineScanner.INSTANCE.lastUnderground ? 0.18F : 0.12F;
         float clearAt = Math.min(clearLimit,
                 Math.max(0F, Config.GSON.instance().ghostClearScreen) * rangeScale);
         // The ramp needs somewhere to happen, so the far edge is always kept ahead of the near one

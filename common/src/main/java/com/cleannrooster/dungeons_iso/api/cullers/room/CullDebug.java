@@ -254,8 +254,10 @@ public final class CullDebug {
                 .append(" shapes=").append(SightlineScanner.INSTANCE.lastShapesFound)
                 .append(" culledShapes=").append(SightlineScanner.INSTANCE.lastShapesCulled)
                 .append(" underground=").append(SightlineScanner.INSTANCE.lastUnderground)
+                .append(" broadUnderground=").append(SightlineScanner.INSTANCE.lastBroadUnderground)
                 .append(" dilation=").append(SightlineScanner.INSTANCE.lastEffectiveDilation)
                 .append(" maxBlocks=").append(SightlineScanner.INSTANCE.lastEffectiveBlockBudget)
+                .append(" playerGroundProtected=").append(SightlineScanner.INSTANCE.lastPlayerGroundProtected)
                 .append(" classes=").append(SightlineScanner.INSTANCE.lastShapeClasses).append('\n');
 
         out.append("renderer.visibleSections=").append(visibleSections)
@@ -449,8 +451,10 @@ public final class CullDebug {
                 + "  below threshold=" + sight.lastShapesBelowThreshold
                 + "  culled=" + sight.lastShapesCulled
                 + "  underground=" + sight.lastUnderground
+                + "  broadUnderground=" + sight.lastBroadUnderground
                 + "  dilation=" + sight.lastEffectiveDilation
-                + "  maxBlocks=" + sight.lastEffectiveBlockBudget);
+                + "  maxBlocks=" + sight.lastEffectiveBlockBudget
+                + "  playerGroundProtected=" + sight.lastPlayerGroundProtected);
         line(client, mask == null ? Formatting.RED : Formatting.GREEN,
                 "   mask: " + (mask == null
                         ? "none published"

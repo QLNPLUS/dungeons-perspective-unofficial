@@ -71,14 +71,20 @@ public final class SightlineScanner implements ScanWorker.Job {
     private static final long SUPPRESSED_HASH = 0x5501FEEDL;
     /** Small endpoint allowance for block centres around the camera/player hitbox. */
     private static final double SEGMENT_ENDPOINT_MARGIN = 0.08;
+    /** Keep a small floor-level ring around the player so nearby terrain remains readable. */
+    private static final double PLAYER_GROUND_KEEP_RADIUS = 2.5;
     /** Prevent a terrain silhouette from becoming a whole cave-sized hole. */
     private static final int MAX_SAFE_TERRAIN_DILATION = 3;
     /** Underground spaces can use a wider reveal, but it remains deliberately bounded. */
     private static final int MAX_SAFE_UNDERGROUND_TERRAIN_DILATION = 5;
+    /** A fully occluded underground view needs a wider local opening to expose the room. */
+    private static final int MAX_SAFE_FULLY_OCCLUDED_DILATION = 7;
     /** A single natural-terrain opening larger than this is treated as unresolved. */
     private static final int MAX_SAFE_TERRAIN_BLOCKS = 2048;
     /** A wider underground reveal is still refused if it grows beyond this size. */
     private static final int MAX_SAFE_UNDERGROUND_TERRAIN_BLOCKS = 3072;
+    /** Additional budget for the fully occluded underground case only. */
+    private static final int MAX_SAFE_FULLY_OCCLUDED_BLOCKS = 4096;
     /** The ceiling probe only needs to distinguish a cave from an open outdoor space. */
     private static final int UNDERGROUND_CEILING_SCAN = 32;
     private static final int UNDERGROUND_CEILING_COLUMNS = 5;
@@ -123,6 +129,10 @@ public final class SightlineScanner implements ScanWorker.Job {
     public volatile int lastShapesFellBack;
     /** Whether the last cast found a mostly covered 3x3 area above the player. */
     public volatile boolean lastUnderground;
+    /** Whether the last cast used the wider fully-occluded underground allowance. */
+    public volatile boolean lastBroadUnderground;
+    /** Number of terrain blocks protected by the player ground ring in the last cast. */
+    public volatile int lastPlayerGroundProtected;
     /** Effective safety values used by the last cast, for the in-game diagnostic report. */
     public volatile int lastEffectiveDilation;
     public volatile int lastEffectiveBlockBudget;
@@ -329,6 +339,8 @@ public final class SightlineScanner implements ScanWorker.Job {
 
         float visibleFraction = clearRays / (float) rayCount;
         this.lastClearRays = clearRays;
+        boolean broadUnderground = this.lastUnderground && clearRays == rayCount;
+        this.lastBroadUnderground = broadUnderground;
 
         float suppressAt = clamp01(Config.GSON.instance().sightlineSuppressThreshold);
         if (visibleFraction >= suppressAt) {
@@ -441,9 +453,10 @@ public final class SightlineScanner implements ScanWorker.Job {
         if (unified || groundAllowed) {
             silhouetteSeeds.addAll(terrainHits);
         }
-        int safeDilation = underground
-                ? MAX_SAFE_UNDERGROUND_TERRAIN_DILATION
-                : MAX_SAFE_TERRAIN_DILATION;
+        this.lastPlayerGroundProtected = 0;
+        int safeDilation = broadUnderground
+                ? MAX_SAFE_FULLY_OCCLUDED_DILATION
+                : underground ? MAX_SAFE_UNDERGROUND_TERRAIN_DILATION : MAX_SAFE_TERRAIN_DILATION;
         this.lastEffectiveDilation = Math.min(safeDilation,
                 Math.max(0, Config.GSON.instance().terrainSilhouetteDilation));
         silhouetteSeeds.addAll(fallbackHits);
@@ -482,9 +495,9 @@ public final class SightlineScanner implements ScanWorker.Job {
             // A terrain silhouette is one pooled shape. If it grows beyond this bound, removing
             // it would turn a camera opening into a large black cave, so fail open and keep the
             // terrain intact for this scan.
-            maxBlocks = Math.min(maxBlocks, underground
-                    ? MAX_SAFE_UNDERGROUND_TERRAIN_BLOCKS
-                    : MAX_SAFE_TERRAIN_BLOCKS);
+            maxBlocks = Math.min(maxBlocks, broadUnderground
+                    ? MAX_SAFE_FULLY_OCCLUDED_BLOCKS
+                    : underground ? MAX_SAFE_UNDERGROUND_TERRAIN_BLOCKS : MAX_SAFE_TERRAIN_BLOCKS);
         }
         this.lastEffectiveBlockBudget = maxBlocks;
 
@@ -757,6 +770,10 @@ public final class SightlineScanner implements ScanWorker.Job {
             if (BlockPos.unpackLongY(packed) < req.minCullY) {
                 continue;
             }
+            if (protectsPlayerGround(req, packed)) {
+                this.lastPlayerGroundProtected++;
+                continue;
+            }
             // A ray can hit a block whose centre is just outside an endpoint, but the silhouette
             // must never start behind the camera or past the player. Without this guard the later
             // dilation can turn a camera-side ceiling into an apparently random missing chunk.
@@ -790,6 +807,10 @@ public final class SightlineScanner implements ScanWorker.Job {
                     continue;
                 }
                 long neighbour = BlockPos.asLong(nx, ny, nz);
+                if (protectsPlayerGround(req, neighbour)) {
+                    this.lastPlayerGroundProtected++;
+                    continue;
+                }
                 // Keep dilation one-sided: it may widen the opening, but it cannot cross either
                 // endpoint of the actual camera-to-player sightline.
                 if (!withinCameraPlayerSegment(req, neighbour)) {
@@ -818,6 +839,23 @@ public final class SightlineScanner implements ScanWorker.Job {
 
         // Bounded by the dilation radius, so it is finished by definition.
         out.complete = true;
+    }
+
+    /**
+     * Keeps the first visible terrain layer around the player's feet. This is intentionally a
+     * small horizontal ring rather than a general no-cull radius: blocks farther along the camera
+     * corridor can still be removed, while a one-block ledge immediately behind the player keeps
+     * communicating the shape of the space they are standing in.
+     */
+    private static boolean protectsPlayerGround(CastRequest req, long packed) {
+        int y = BlockPos.unpackLongY(packed);
+        if (y != req.minCullY) {
+            return false;
+        }
+
+        double dx = BlockPos.unpackLongX(packed) + 0.5 - req.targetX;
+        double dz = BlockPos.unpackLongZ(packed) + 0.5 - req.targetZ;
+        return dx * dx + dz * dz <= PLAYER_GROUND_KEEP_RADIUS * PLAYER_GROUND_KEEP_RADIUS;
     }
 
 
