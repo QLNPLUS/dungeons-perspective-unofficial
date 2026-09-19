@@ -17,6 +17,15 @@ public interface ChunkRebuildScheduler {
     /** Schedules a rebuild of the section at the given section coordinates. */
     void scheduleSection(int sectionX, int sectionY, int sectionZ);
 
+    /** Marks the renderer's section visibility graph dirty after culling geometry changes. */
+    default void scheduleVisibilityUpdate() {
+    }
+
+    /** Returns the renderer's current visible-section count, or -1 when unavailable. */
+    default int visibleSectionCount() {
+        return -1;
+    }
+
     /**
      * The implementation for this installation, resolved once on first use.
      *

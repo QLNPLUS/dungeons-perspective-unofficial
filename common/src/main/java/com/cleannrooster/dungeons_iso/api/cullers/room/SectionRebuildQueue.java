@@ -29,6 +29,7 @@ public final class SectionRebuildQueue {
 
     /** Insertion-ordered so the distance sort applied at submit time survives until drain. */
     private final LongLinkedOpenHashSet queue = new LongLinkedOpenHashSet();
+    private volatile int lastDrained;
 
     private SectionRebuildQueue() {
     }
@@ -61,19 +62,23 @@ public final class SectionRebuildQueue {
     /** Rebuilds up to the configured number of sections. Call once per client tick. */
     public void drain() {
         if (this.queue.isEmpty()) {
+            this.lastDrained = 0;
             return;
         }
 
         int budget = Math.max(1, Math.min(64, Config.GSON.instance().roomSectionsPerTick));
         ChunkRebuildScheduler scheduler = ChunkRebuildScheduler.get();
 
+        int drained = 0;
         for (int i = 0; i < budget && !this.queue.isEmpty(); i++) {
             long packed = this.queue.removeFirstLong();
             scheduler.scheduleSection(
                     ChunkSectionPos.unpackX(packed),
                     ChunkSectionPos.unpackY(packed),
                     ChunkSectionPos.unpackZ(packed));
+            drained++;
         }
+        this.lastDrained = drained;
     }
 
     public void clear() {
@@ -82,6 +87,10 @@ public final class SectionRebuildQueue {
 
     public int size() {
         return this.queue.size();
+    }
+
+    public int lastDrained() {
+        return this.lastDrained;
     }
 
     /**

@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.FluidBlock;
 import net.minecraft.client.MinecraftClient;
 import com.cleannrooster.dungeons_iso.mixin.GameRendererAccessor;
 import net.minecraft.client.render.Camera;
@@ -24,6 +25,7 @@ import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.BakedQuad;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.fluid.FluidState;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
@@ -96,6 +98,8 @@ public final class GhostRenderer {
     private static final Random RANDOM = Random.create();
     /** Reused for corner projection. Render thread only. */
     private static final float[] CORNER = new float[2];
+    /** Reused for the player focus projection. Render thread only. */
+    private static final float[] SCREEN = new float[2];
     // Per-quad scratch, hoisted out of the frame loop. Render thread only. These are the four
     // corners, four edge midpoints and centre of a 2x2 subdivision.
     private static final float[] nodeAlpha = new float[9];
@@ -104,7 +108,7 @@ public final class GhostRenderer {
     /** Floats per cached vertex: x, y, z (origin-relative), u, v, nx, ny, nz, r, g, b. */
     private static final int STRIDE = 11;
     /** Safety ceiling on cached geometry, so a pathological cull set cannot allocate without bound. */
-    private static final int MAX_VERTICES = 480_000;
+    private static final int MAX_VERTICES = 120_000;
     /**
      * Rebake at least this often, so edits to the world do not leave the ghost stale forever.
      *
@@ -141,6 +145,16 @@ public final class GhostRenderer {
      */
     public static void render(MatrixStack matrices, VertexConsumerProvider.Immediate buffers,
                               Camera camera, GameRenderer gameRenderer) {
+        long started = System.nanoTime();
+        try {
+            renderInternal(matrices, buffers, camera, gameRenderer);
+        } finally {
+            CullDebug.recordGhostRender(System.nanoTime() - started);
+        }
+    }
+
+    private static void renderInternal(MatrixStack matrices, VertexConsumerProvider.Immediate buffers,
+                                       Camera camera, GameRenderer gameRenderer) {
         if (!Mod.enabled || !Config.GSON.instance().ghostCulledBlocks) {
             invalidate();
             return;
@@ -160,7 +174,12 @@ public final class GhostRenderer {
             return;
         }
         float rangeScale = Math.max(0.5F, Math.min(3.0F, Config.GSON.instance().ghostScreenRangeScale));
-        float clearAt = Math.max(0F, Config.GSON.instance().ghostClearScreen) * rangeScale;
+        // Keep the transparent pocket deliberately small in open terrain. Underground, the
+        // sightline scanner has separately confirmed a covered local space, so allow a modestly
+        // wider pocket there without restoring the old large black opening.
+        float clearLimit = SightlineScanner.INSTANCE.lastUnderground ? 0.18F : 0.12F;
+        float clearAt = Math.min(clearLimit,
+                Math.max(0F, Config.GSON.instance().ghostClearScreen) * rangeScale);
         // The ramp needs somewhere to happen, so the far edge is always kept ahead of the near one
         // however the two are configured. Both distances scale together to preserve the curve.
         float opaqueAt = Math.max(clearAt + 0.01F,
@@ -197,13 +216,12 @@ public final class GhostRenderer {
         Projector projector = new Projector(camera, gameRenderer);
 
         Vec3d focus = client.cameraEntity.getBoundingBox().getCenter();
-        float[] screen = new float[2];
-        if (!projector.project(focus.x, focus.y, focus.z, cameraPos, screen)) {
+        if (!projector.project(focus.x, focus.y, focus.z, cameraPos, SCREEN)) {
             // The player is behind the camera; nothing sensible to measure against.
             return;
         }
-        float focusX = screen[0];
-        float focusY = screen[1];
+        float focusX = SCREEN[0];
+        float focusY = SCREEN[1];
         lastVertexCount = vertexCount;
 
         VertexConsumer consumer = buffers.getBuffer(GHOST_LAYER);
@@ -265,23 +283,46 @@ public final class GhostRenderer {
                 continue;
             }
 
+            // Most ghost faces are nowhere near the transparent player pocket. Keep those on the
+            // original four-vertex path; only faces whose projected bounds touch the pocket need
+            // the nine-point subdivision below. This keeps the visual fix for large faces without
+            // paying nine projections for every visible ghost quad every frame.
+            boolean intersectsClearPocket = maxSX >= focusX - clearAt && minSX <= focusX + clearAt
+                    && maxSY >= focusY - clearAt && minSY <= focusY + clearAt;
+            if (!intersectsClearPocket) {
+                float a0 = screenAlpha(cornerX[0], cornerY[0], focusX, focusY,
+                        clearAt, opaqueAt, maxAlpha);
+                float a1 = screenAlpha(cornerX[1], cornerY[1], focusX, focusY,
+                        clearAt, opaqueAt, maxAlpha);
+                float a2 = screenAlpha(cornerX[2], cornerY[2], focusX, focusY,
+                        clearAt, opaqueAt, maxAlpha);
+                float a3 = screenAlpha(cornerX[3], cornerY[3], focusX, focusY,
+                        clearAt, opaqueAt, maxAlpha);
+                if (a0 <= MIN_ALPHA && a1 <= MIN_ALPHA && a2 <= MIN_ALPHA && a3 <= MIN_ALPHA) {
+                    continue;
+                }
+                emitQuad(consumer, entry, v, offX, offY, offZ, a0, a1, a2, a3);
+                submittedVertices += 4;
+                continue;
+            }
+
             // A large baked face can cover the entire player even when all four corners are outside
             // the clear pocket. Split it into four quads and sample the centre and edge midpoints,
             // so the transparent area is real geometry rather than a corner-only interpolation.
-            nodeAlpha[0] = alphaAt(v, 0.0F, 0.0F, projector, cameraPos,
-                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[0] = screenAlpha(cornerX[0], cornerY[0], focusX, focusY,
+                    clearAt, opaqueAt, maxAlpha);
             nodeAlpha[1] = alphaAt(v, 0.5F, 0.0F, projector, cameraPos,
                     focusX, focusY, clearAt, opaqueAt, maxAlpha);
-            nodeAlpha[2] = alphaAt(v, 1.0F, 0.0F, projector, cameraPos,
-                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[2] = screenAlpha(cornerX[1], cornerY[1], focusX, focusY,
+                    clearAt, opaqueAt, maxAlpha);
             nodeAlpha[3] = alphaAt(v, 1.0F, 0.5F, projector, cameraPos,
                     focusX, focusY, clearAt, opaqueAt, maxAlpha);
-            nodeAlpha[4] = alphaAt(v, 1.0F, 1.0F, projector, cameraPos,
-                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[4] = screenAlpha(cornerX[2], cornerY[2], focusX, focusY,
+                    clearAt, opaqueAt, maxAlpha);
             nodeAlpha[5] = alphaAt(v, 0.5F, 1.0F, projector, cameraPos,
                     focusX, focusY, clearAt, opaqueAt, maxAlpha);
-            nodeAlpha[6] = alphaAt(v, 0.0F, 1.0F, projector, cameraPos,
-                    focusX, focusY, clearAt, opaqueAt, maxAlpha);
+            nodeAlpha[6] = screenAlpha(cornerX[3], cornerY[3], focusX, focusY,
+                    clearAt, opaqueAt, maxAlpha);
             nodeAlpha[7] = alphaAt(v, 0.0F, 0.5F, projector, cameraPos,
                     focusX, focusY, clearAt, opaqueAt, maxAlpha);
             nodeAlpha[8] = alphaAt(v, 0.5F, 0.5F, projector, cameraPos,
@@ -342,6 +383,37 @@ public final class GhostRenderer {
                 .light(lights[firstVertex + corner])
                 .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7])
                 .next();
+    }
+
+    private static void emitQuad(VertexConsumer consumer, MatrixStack.Entry entry, int firstVertex,
+                                 double offX, double offY, double offZ,
+                                 float a0, float a1, float a2, float a3) {
+        for (int i = 0; i < 4; i++) {
+            int o = (firstVertex + i) * STRIDE;
+            float alpha = switch (i) {
+                case 0 -> a0;
+                case 1 -> a1;
+                case 2 -> a2;
+                default -> a3;
+            };
+            consumer.vertex(entry.getPositionMatrix(),
+                            (float) (offX + geometry[o]),
+                            (float) (offY + geometry[o + 1]),
+                            (float) (offZ + geometry[o + 2]))
+                    .color(geometry[o + 8], geometry[o + 9], geometry[o + 10], alpha)
+                    .texture(geometry[o + 3], geometry[o + 4])
+                    .overlay(OverlayTexture.DEFAULT_UV)
+                    .light(lights[firstVertex + i])
+                    .normal(entry.getNormalMatrix(), geometry[o + 5], geometry[o + 6], geometry[o + 7])
+                    .next();
+        }
+    }
+
+    private static float screenAlpha(float x, float y, float focusX, float focusY,
+                                     float clearAt, float opaqueAt, float maxAlpha) {
+        float dx = x - focusX;
+        float dy = y - focusY;
+        return curve((float) Math.sqrt(dx * dx + dy * dy), clearAt, opaqueAt, maxAlpha);
     }
 
     private static float alphaAt(int firstVertex, float s, float t, Projector projector,
@@ -420,8 +492,10 @@ public final class GhostRenderer {
 
     private static void bake(MinecraftClient client, ClientWorld world,
                              SightlineMask mask, RoomSnapshot snapshot) {
+        long started = System.nanoTime();
         vertexCount = 0;
         if (mask == null && snapshot == null) {
+            CullDebug.recordGhostBake(System.nanoTime() - started, 0);
             return;
         }
 
@@ -448,6 +522,7 @@ public final class GhostRenderer {
         geometry = baker.verts.toFloatArray();
         lights = baker.lights.toIntArray();
         vertexCount = baker.lights.size();
+        CullDebug.recordGhostBake(System.nanoTime() - started, baker.fluidVertices);
     }
 
     /** Walks the cull set once and flattens the visible faces into arrays. */
@@ -461,6 +536,8 @@ public final class GhostRenderer {
 
         final SightlineMask mask;
         final RoomSnapshot snapshot;
+        final FluidCaptureConsumer fluidConsumer = new FluidCaptureConsumer(this);
+        int fluidVertices;
 
         Baker(MinecraftClient client, ClientWorld world, SightlineMask mask, RoomSnapshot snapshot) {
             this.client = client;
@@ -477,6 +554,17 @@ public final class GhostRenderer {
             BlockState state = this.world.getBlockState(this.pos);
             if (state.isAir()) {
                 return;
+            }
+
+            FluidState fluid = state.getFluidState();
+            if (!fluid.isEmpty()) {
+                this.client.getBlockRenderManager().renderFluid(this.pos, this.world,
+                        this.fluidConsumer, state, fluid);
+                // A waterlogged block owns both meshes. Pure fluid blocks have no separate
+                // block model, while stairs, fences, signs, etc. still need their solid model.
+                if (state.getBlock() instanceof FluidBlock) {
+                    return;
+                }
             }
 
             BakedModel model = this.client.getBlockRenderManager().getModel(state);
@@ -509,6 +597,27 @@ public final class GhostRenderer {
             RANDOM.setSeed(seed);
             emit(state, model.getQuads(state, null, RANDOM), x, y, z,
                     WorldRenderer.getLightmapCoordinates(this.world, this.pos));
+        }
+
+        void addFluidVertex(float x, float y, float z, float u, float v,
+                            float nx, float ny, float nz,
+                            float r, float g, float b, int light) {
+            if (this.lights.size() >= MAX_VERTICES) {
+                return;
+            }
+            this.verts.add((float) (x - originX));
+            this.verts.add((float) (y - originY));
+            this.verts.add((float) (z - originZ));
+            this.verts.add(u);
+            this.verts.add(v);
+            this.verts.add(nx);
+            this.verts.add(ny);
+            this.verts.add(nz);
+            this.verts.add(r);
+            this.verts.add(g);
+            this.verts.add(b);
+            this.lights.add(light);
+            this.fluidVertices++;
         }
 
         private void emit(BlockState state, List<BakedQuad> quads, int bx, int by, int bz, int light) {
@@ -565,6 +674,77 @@ public final class GhostRenderer {
                     this.lights.add(light);
                 }
             }
+        }
+    }
+
+    /** Captures vanilla fluid vertices into the same cached ghost format as block quads. */
+    private static final class FluidCaptureConsumer implements VertexConsumer {
+        private final Baker owner;
+        private double x, y, z;
+        private float u, v;
+        private float nx, ny, nz;
+        private float r = 1.0F, g = 1.0F, b = 1.0F;
+        private int light = 0x00F000F0;
+
+        FluidCaptureConsumer(Baker owner) {
+            this.owner = owner;
+        }
+
+        @Override
+        public VertexConsumer vertex(double x, double y, double z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            return this;
+        }
+
+        @Override
+        public VertexConsumer color(int red, int green, int blue, int alpha) {
+            this.r = red / 255.0F;
+            this.g = green / 255.0F;
+            this.b = blue / 255.0F;
+            return this;
+        }
+
+        @Override
+        public VertexConsumer texture(float u, float v) {
+            this.u = u;
+            this.v = v;
+            return this;
+        }
+
+        @Override
+        public VertexConsumer overlay(int u, int v) {
+            return this;
+        }
+
+        @Override
+        public VertexConsumer light(int u, int v) {
+            this.light = u | (v << 16);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer normal(float x, float y, float z) {
+            this.nx = x;
+            this.ny = y;
+            this.nz = z;
+            return this;
+        }
+
+        @Override
+        public void next() {
+            this.owner.addFluidVertex((float) this.x, (float) this.y, (float) this.z,
+                    this.u, this.v, this.nx, this.ny, this.nz, this.r, this.g, this.b, this.light);
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha) {
+            color(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor() {
         }
     }
 

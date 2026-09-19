@@ -69,6 +69,19 @@ public final class SightlineScanner implements ScanWorker.Job {
      * which culls nothing for a different reason and must not be mistaken for it.
      */
     private static final long SUPPRESSED_HASH = 0x5501FEEDL;
+    /** Small endpoint allowance for block centres around the camera/player hitbox. */
+    private static final double SEGMENT_ENDPOINT_MARGIN = 0.08;
+    /** Prevent a terrain silhouette from becoming a whole cave-sized hole. */
+    private static final int MAX_SAFE_TERRAIN_DILATION = 3;
+    /** Underground spaces can use a wider reveal, but it remains deliberately bounded. */
+    private static final int MAX_SAFE_UNDERGROUND_TERRAIN_DILATION = 5;
+    /** A single natural-terrain opening larger than this is treated as unresolved. */
+    private static final int MAX_SAFE_TERRAIN_BLOCKS = 2048;
+    /** A wider underground reveal is still refused if it grows beyond this size. */
+    private static final int MAX_SAFE_UNDERGROUND_TERRAIN_BLOCKS = 3072;
+    /** The ceiling probe only needs to distinguish a cave from an open outdoor space. */
+    private static final int UNDERGROUND_CEILING_SCAN = 32;
+    private static final int UNDERGROUND_CEILING_COLUMNS = 5;
 
     private final AtomicReference<CastRequest> pending = new AtomicReference<>();
     private final AtomicReference<SightlineMask> completed = new AtomicReference<>();
@@ -108,6 +121,11 @@ public final class SightlineScanner implements ScanWorker.Job {
     public volatile int lastUnresolvedByHeight;
     /** Objects that failed to resolve and were handed to the silhouette instead of dropped. */
     public volatile int lastShapesFellBack;
+    /** Whether the last cast found a mostly covered 3x3 area above the player. */
+    public volatile boolean lastUnderground;
+    /** Effective safety values used by the last cast, for the in-game diagnostic report. */
+    public volatile int lastEffectiveDilation;
+    public volatile int lastEffectiveBlockBudget;
     public volatile int castCount;
 
     private SightlineScanner() {
@@ -284,6 +302,10 @@ public final class SightlineScanner implements ScanWorker.Job {
     private SightlineMask cast(CastRequest req) {
         beginSlice();
         this.castCount++;
+        // Keep this probe on the scan worker: requestScan runs on the client thread and should only
+        // capture references, not walk block states.
+        boolean underground = looksUnderground(req.view, req.targetX, req.targetY, req.targetZ);
+        this.lastUnderground = underground;
 
         int rayCount = req.targets.length / 3;
         if (rayCount == 0) {
@@ -419,12 +441,17 @@ public final class SightlineScanner implements ScanWorker.Job {
         if (unified || groundAllowed) {
             silhouetteSeeds.addAll(terrainHits);
         }
+        int safeDilation = underground
+                ? MAX_SAFE_UNDERGROUND_TERRAIN_DILATION
+                : MAX_SAFE_TERRAIN_DILATION;
+        this.lastEffectiveDilation = Math.min(safeDilation,
+                Math.max(0, Config.GSON.instance().terrainSilhouetteDilation));
         silhouetteSeeds.addAll(fallbackHits);
 
         if (!silhouetteSeeds.isEmpty()) {
             Shape shape = new Shape(OccluderClass.TERRAIN);
             buildSilhouette(req, silhouetteSeeds, shapes.size(), voxelToShape, shape,
-                    Math.max(0, Config.GSON.instance().terrainSilhouetteDilation));
+                    this.lastEffectiveDilation);
             if (!shape.blocks.isEmpty()) {
                 shapes.add(shape);
             }
@@ -451,6 +478,15 @@ public final class SightlineScanner implements ScanWorker.Job {
         float occludeAt = clamp01(Config.GSON.instance().terrainOccludeThreshold);
         int maxShapes = Math.max(1, Config.GSON.instance().sightlineMaxShapes);
         int maxBlocks = Math.max(256, Config.GSON.instance().sightlineMaxCulledBlocks);
+        if (unified && groundAllowed) {
+            // A terrain silhouette is one pooled shape. If it grows beyond this bound, removing
+            // it would turn a camera opening into a large black cave, so fail open and keep the
+            // terrain intact for this scan.
+            maxBlocks = Math.min(maxBlocks, underground
+                    ? MAX_SAFE_UNDERGROUND_TERRAIN_BLOCKS
+                    : MAX_SAFE_TERRAIN_BLOCKS);
+        }
+        this.lastEffectiveBlockBudget = maxBlocks;
 
         List<Shape> candidates = new ArrayList<>();
         int incomplete = 0;
@@ -721,6 +757,12 @@ public final class SightlineScanner implements ScanWorker.Job {
             if (BlockPos.unpackLongY(packed) < req.minCullY) {
                 continue;
             }
+            // A ray can hit a block whose centre is just outside an endpoint, but the silhouette
+            // must never start behind the camera or past the player. Without this guard the later
+            // dilation can turn a camera-side ceiling into an apparently random missing chunk.
+            if (!withinCameraPlayerSegment(req, packed)) {
+                continue;
+            }
             voxelToShape.put(packed, id);
             depth.put(packed, 0);
             out.record(packed, req);
@@ -748,6 +790,11 @@ public final class SightlineScanner implements ScanWorker.Job {
                     continue;
                 }
                 long neighbour = BlockPos.asLong(nx, ny, nz);
+                // Keep dilation one-sided: it may widen the opening, but it cannot cross either
+                // endpoint of the actual camera-to-player sightline.
+                if (!withinCameraPlayerSegment(req, neighbour)) {
+                    continue;
+                }
                 if (voxelToShape.get(neighbour) >= 0) {
                     continue;
                 }
@@ -786,12 +833,65 @@ public final class SightlineScanner implements ScanWorker.Job {
             return dx * dx + dy * dy + dz * dz;
         }
 
-        double t = ((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / lenSq;
+        double t = segmentProgress(req, px, py, pz);
         t = Math.max(0, Math.min(1, t));
 
         double cx = ax + abx * t, cy = ay + aby * t, cz = az + abz * t;
         double dx = px - cx, dy = py - cy, dz = pz - cz;
         return dx * dx + dy * dy + dz * dz;
+    }
+
+    /** Returns the un-clamped projection of a point onto the camera-to-player segment. */
+    private static double segmentProgress(CastRequest req, double px, double py, double pz) {
+        double ax = req.cameraX, ay = req.cameraY, az = req.cameraZ;
+        double abx = req.targetX - ax, aby = req.targetY - ay, abz = req.targetZ - az;
+        double lenSq = abx * abx + aby * aby + abz * abz;
+        if (lenSq <= 1.0E-6) {
+            return 0.0;
+        }
+        return ((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / lenSq;
+    }
+
+    /**
+     * A conservative underground test for the adaptive terrain allowance. It samples a 3x3
+     * footprint above the player and requires most columns to meet a solid ceiling within a short
+     * vertical range. A single shaft, tree, or nearby cliff therefore does not unlock the wider
+     * reveal by itself.
+     */
+    private static boolean looksUnderground(ChunkView view, double px, double py, double pz) {
+        int x = (int) Math.floor(px);
+        int y = (int) Math.floor(py);
+        int z = (int) Math.floor(pz);
+        int covered = 0;
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                boolean ceiling = false;
+                for (int probeY = y + 2; probeY <= y + UNDERGROUND_CEILING_SCAN
+                        && probeY < view.getTopY(); probeY++) {
+                    int kind = view.classify(x + dx, probeY, z + dz);
+                    if (kind == ChunkView.SOLID) {
+                        ceiling = true;
+                        break;
+                    }
+                    if (kind == ChunkView.UNKNOWN) {
+                        break;
+                    }
+                }
+                if (ceiling && ++covered >= UNDERGROUND_CEILING_COLUMNS) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean withinCameraPlayerSegment(CastRequest req, long packed) {
+        int x = BlockPos.unpackLongX(packed);
+        int y = BlockPos.unpackLongY(packed);
+        int z = BlockPos.unpackLongZ(packed);
+        double t = segmentProgress(req, x + 0.5, y + 0.5, z + 0.5);
+        return t >= -SEGMENT_ENDPOINT_MARGIN && t <= 1.0 + SEGMENT_ENDPOINT_MARGIN;
     }
 
     /**

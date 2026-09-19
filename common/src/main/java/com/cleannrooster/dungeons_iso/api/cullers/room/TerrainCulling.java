@@ -10,6 +10,7 @@ import net.minecraft.block.LadderBlock;
 import net.minecraft.block.SnowBlock;
 import net.minecraft.block.SpawnerBlock;
 import net.minecraft.block.VineBlock;
+import net.minecraft.fluid.FluidState;
 import net.minecraft.block.WallMountedBlock;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.math.Direction;
@@ -132,6 +133,11 @@ public final class TerrainCulling {
             return attachedToRemovedTerrain(state, x, y, z);
         }
         return false;
+    }
+
+    /** Same decision as block culling, exposed for renderers with a separate fluid mesh pass. */
+    public static boolean shouldRemoveFluid(FluidState fluidState, int x, int y, int z) {
+        return fluidState != null && !fluidState.isEmpty() && isRemoved(x, y, z);
     }
 
     private static boolean attachedToRemovedTerrain(BlockState state, int x, int y, int z) {

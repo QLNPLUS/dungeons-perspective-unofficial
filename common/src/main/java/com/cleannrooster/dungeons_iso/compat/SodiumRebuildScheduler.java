@@ -33,4 +33,25 @@ public final class SodiumRebuildScheduler implements ChunkRebuildScheduler {
         } catch (Throwable ignored) {
         }
     }
+
+    @Override
+    public void scheduleVisibilityUpdate() {
+        try {
+            SodiumWorldRenderer renderer = SodiumWorldRenderer.instanceNullable();
+            if (renderer != null) {
+                renderer.scheduleTerrainUpdate();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Override
+    public int visibleSectionCount() {
+        try {
+            SodiumWorldRenderer renderer = SodiumWorldRenderer.instanceNullable();
+            return renderer == null ? -1 : renderer.getVisibleChunkCount();
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
 }

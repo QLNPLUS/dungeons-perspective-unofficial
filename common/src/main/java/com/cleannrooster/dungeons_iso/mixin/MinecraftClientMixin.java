@@ -178,6 +178,7 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         if (client.world != null) {
             CullDebug.tickLog();
             if (ClientInit.cullDebugBinding.wasPressed()) {
+                CullDebug.toggleOverlay();
                 CullDebug.report();
             }
         }

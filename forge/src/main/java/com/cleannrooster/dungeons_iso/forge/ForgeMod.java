@@ -1,9 +1,13 @@
 package com.cleannrooster.dungeons_iso.forge;
 
 import com.cleannrooster.dungeons_iso.ClientInit;
+import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
+import com.mojang.brigadier.Command;
 import com.cleannrooster.dungeons_iso.api.cullers.room.GhostRenderer;
+import net.minecraft.server.command.CommandManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -65,6 +69,22 @@ public final class ForgeMod {
             } catch (Throwable error) {
                 GhostRenderer.reportRenderFailure(error);
             }
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+    public static final class ClientCommandEvents {
+        private ClientCommandEvents() {
+        }
+
+        @SubscribeEvent
+        public static void registerClientCommands(RegisterClientCommandsEvent event) {
+            event.getDispatcher().register(
+                    CommandManager.literal("dungeons_iso_debug")
+                            .executes(context -> {
+                                CullDebug.saveSnapshot();
+                                return Command.SINGLE_SUCCESS;
+                            }));
         }
     }
 }

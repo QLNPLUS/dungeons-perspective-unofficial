@@ -7,6 +7,8 @@ import com.cleannrooster.dungeons_iso.api.cullers.FloodCuller;
 import com.cleannrooster.dungeons_iso.api.cullers.GenericCuller3;
 import com.cleannrooster.dungeons_iso.api.cullers.GenericBlockCuller2;
 import com.cleannrooster.dungeons_iso.api.cullers.room.GhostRenderer;
+import com.cleannrooster.dungeons_iso.api.cullers.room.ChunkRebuildScheduler;
+import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
 import com.cleannrooster.dungeons_iso.api.cullers.room.RoomScanner;
 import com.cleannrooster.dungeons_iso.api.cullers.room.SectionRebuildQueue;
 import com.cleannrooster.dungeons_iso.api.cullers.room.SightlineScanner;
@@ -56,6 +58,7 @@ public class SodiumCompat {
 
 
     public static void run(){
+        long started = System.nanoTime();
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
 
         if(fogOfWar == null){
@@ -72,7 +75,10 @@ public class SodiumCompat {
         }
 
 
-        tickRoomScanner();
+        if (tickRoomScanner()) {
+            ChunkRebuildScheduler.get().scheduleVisibilityUpdate();
+        }
+        CullDebug.recordVisibleSections(ChunkRebuildScheduler.get().visibleSectionCount());
 
         // The blanket camera-box rebuild that used to live here is gone. It existed to force
         // re-meshing for the cylinder culler, which decided per block at mesh time and so had no
@@ -94,6 +100,7 @@ public class SodiumCompat {
 
 
         }
+        CullDebug.recordCompatNanos(System.nanoTime() - started);
     }
 
     /**
@@ -121,13 +128,14 @@ public class SodiumCompat {
      * The only work that lands on the client thread here is capturing chunk references (a few dozen
      * array reads) and scheduling at most {@code roomSectionsPerTick} section rebuilds.
      */
-    private static void tickRoomScanner() {
+    private static boolean tickRoomScanner() {
         MinecraftClient client = MinecraftClient.getInstance();
         ClientWorld world = client.world;
         Entity cameraEntity = client.cameraEntity;
         if (world == null || cameraEntity == null) {
-            return;
+            return false;
         }
+        boolean visibilityDirty = false;
 
         RegistryKey<World> dimension = world.getRegistryKey();
         if (!dimension.equals(lastDimension)) {
@@ -141,7 +149,7 @@ public class SodiumCompat {
             // Static, so without this the baked geometry and the mask and snapshot it was built
             // from stay reachable after the world they describe is gone.
             GhostRenderer.invalidate();
-            return;
+            return false;
         }
 
         BlockPos playerPos = cameraEntity.getBlockPos();
@@ -152,6 +160,7 @@ public class SodiumCompat {
         LongOpenHashSet toggled = RoomScanner.INSTANCE.setActive(shouldApply);
         if (toggled != null) {
             SectionRebuildQueue.INSTANCE.submit(toggled, playerPos);
+            visibilityDirty = true;
         }
 
         if (Config.GSON.instance().roomCulling) {
@@ -172,11 +181,15 @@ public class SodiumCompat {
             LongOpenHashSet dirty = RoomScanner.INSTANCE.pollCompleted();
             if (dirty != null) {
                 SectionRebuildQueue.INSTANCE.submit(dirty, playerPos);
+                visibilityDirty = true;
             }
         }
 
-        tickSightlineScanner(world, cameraEntity, playerPos);
+        if (tickSightlineScanner(world, cameraEntity, playerPos)) {
+            visibilityDirty = true;
+        }
         SectionRebuildQueue.INSTANCE.drain();
+        return visibilityDirty;
     }
 
     /**
@@ -186,15 +199,17 @@ public class SodiumCompat {
      * <p>Retriggered by camera movement as well as player movement, because the thing being tested
      * is a line of sight — orbiting the camera changes the answer even when the player stands still.
      */
-    private static void tickSightlineScanner(ClientWorld world, Entity cameraEntity, BlockPos playerPos) {
+    private static boolean tickSightlineScanner(ClientWorld world, Entity cameraEntity, BlockPos playerPos) {
+        boolean visibilityDirty = false;
         boolean shouldApply = Mod.enabled && Mod.shouldRebuild() && Config.GSON.instance().shapeCulling;
         LongOpenHashSet toggled = SightlineScanner.INSTANCE.setActive(shouldApply);
         if (toggled != null) {
             SectionRebuildQueue.INSTANCE.submit(toggled, playerPos);
+            visibilityDirty = true;
         }
 
         if (!Mod.enabled || !Config.GSON.instance().shapeCulling) {
-            return;
+            return visibilityDirty;
         }
 
         // Use the position actually used by the renderer. Mod.preMod is the pre-modulation
@@ -203,15 +218,15 @@ public class SodiumCompat {
         // the scanner remove blocks behind the player instead of blocks between the camera and it.
         Camera renderCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
         if (renderCamera == null) {
-            return;
+            return visibilityDirty;
         }
         Vec3d camera = renderCamera.getPos();
         if (camera == null || camera.equals(Vec3d.ZERO)) {
-            return;
+            return visibilityDirty;
         }
         double distance = camera.distanceTo(cameraEntity.getPos());
         if (distance < 1.0 || distance > 128.0) {
-            return;
+            return visibilityDirty;
         }
 
         int cooldown = Math.max(1, Config.GSON.instance().sightlineRescanCooldown);
@@ -231,6 +246,8 @@ public class SodiumCompat {
         LongOpenHashSet dirty = SightlineScanner.INSTANCE.pollCompleted();
         if (dirty != null) {
             SectionRebuildQueue.INSTANCE.submit(dirty, playerPos);
+            visibilityDirty = true;
         }
+        return visibilityDirty;
     }
 }

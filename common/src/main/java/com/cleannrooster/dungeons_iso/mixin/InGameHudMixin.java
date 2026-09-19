@@ -1,6 +1,7 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.config.Config;
+import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.DrawContext;
@@ -33,6 +34,11 @@ public class InGameHudMixin {
         if(Mod.enabled && ((client.getCameraEntity() instanceof LivingEntity living && living.hasStatusEffect(DARKNESS)) || Config.GSON.instance().fogOfWar) && fogOfWar != null) {
             fogOfWar.render(context, tickDelta);
         }
+    }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void renderCullingDebug(DrawContext context, float tickDelta, CallbackInfo ci) {
+        CullDebug.renderOverlay(context);
     }
 
     @Inject(
