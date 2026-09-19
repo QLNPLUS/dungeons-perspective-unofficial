@@ -2,10 +2,7 @@
 
 ## 2.0.0
 
-- Improved underground camera-to-player terrain culling.
-- Added a protected ground ring around the player to preserve nearby terrain readability.
-- Improved fluid culling and ghost rendering compatibility with Embeddium.
-- Added culling diagnostics for investigating visual anomalies.
+- 从原 mod 1.21.1 版本迁移
 
 ## 1.3.1
 
