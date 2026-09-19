@@ -75,6 +75,13 @@ public final class CullingBackdrop {
         CullingBackdrop.blue = blue;
     }
 
+    /** Immediately clears the temporary cave backdrop when the perspective is disabled. */
+    public static void reset() {
+        enclosed = false;
+        strength = 0.0F;
+        lastUpdateNanos = 0L;
+    }
+
     public static float red() {
         return red;
     }

@@ -95,7 +95,8 @@ public class Mod {
     }
 
     public static float zoom = 5.0F;
-    public static boolean enabled = false;
+    /** Published for client integrations such as KubeJS; transitions still run on the client thread. */
+    public static volatile boolean enabled = false;
     public static Perspective lastPerspective;
     public static HitResult crosshairTarget;
     public static Entity pickedTarget;
