@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkSectionPos;
 
 /**
  * The set of blocks to remove between the camera and the player, expressed as whole shapes.
@@ -100,5 +101,29 @@ public final class SightlineMask {
 
     public int blockCount() {
         return this.occluding.size();
+    }
+
+    /** Counts shape-culling blocks strictly below the supplied world Y coordinate. */
+    public int blockCountBelow(int y) {
+        int count = 0;
+        for (it.unimi.dsi.fastutil.longs.LongIterator it = this.occluding.iterator(); it.hasNext(); ) {
+            if (BlockPos.unpackLongY(it.nextLong()) < y) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Counts shape-culling sections wholly below the supplied world Y coordinate. */
+    public int sectionCountBelow(int y) {
+        int sectionY = y >> 4;
+        int count = 0;
+        for (it.unimi.dsi.fastutil.longs.LongIterator it = this.sectionHashes.keySet().iterator();
+             it.hasNext(); ) {
+            if (ChunkSectionPos.unpackY(it.nextLong()) < sectionY) {
+                count++;
+            }
+        }
+        return count;
     }
 }

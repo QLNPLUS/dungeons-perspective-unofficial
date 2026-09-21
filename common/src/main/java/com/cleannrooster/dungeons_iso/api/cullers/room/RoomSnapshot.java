@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.world.World;
 
 /**
@@ -135,6 +136,38 @@ public final class RoomSnapshot {
 
     public int columnCount() {
         return this.columnCount;
+    }
+
+    /** Counts room-culling blocks strictly below the supplied world Y coordinate. */
+    public int culledBlockCountBelow(int y) {
+        int count = 0;
+        for (it.unimi.dsi.fastutil.longs.LongIterator it = this.columns.values().iterator();
+             it.hasNext(); ) {
+            long packed = it.nextLong();
+            int roofBase = (int) (packed >>> 32);
+            if (roofBase == OPEN_SKY) {
+                continue;
+            }
+            int roofTop = (int) packed;
+            int top = Math.min(roofTop, y - 1);
+            if (top >= roofBase) {
+                count += top - roofBase + 1;
+            }
+        }
+        return count;
+    }
+
+    /** Counts room-culling sections wholly below the supplied world Y coordinate. */
+    public int culledSectionCountBelow(int y) {
+        int sectionY = y >> 4;
+        int count = 0;
+        for (it.unimi.dsi.fastutil.longs.LongIterator it = this.sectionHashes.keySet().iterator();
+             it.hasNext(); ) {
+            if (ChunkSectionPos.unpackY(it.nextLong()) < sectionY) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public static long packXZ(int x, int z) {

@@ -148,6 +148,16 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         }
     }
 
+    @Inject(method = "render", at = @At("HEAD"))
+    private void dungeonsIsoDebugRenderStart(boolean tick, CallbackInfo ci) {
+        CullDebug.frameStart();
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void dungeonsIsoDebugRenderEnd(boolean tick, CallbackInfo ci) {
+        CullDebug.frameEnd();
+    }
+
 
 
     @Inject(method = "tick", at = @At("HEAD"))

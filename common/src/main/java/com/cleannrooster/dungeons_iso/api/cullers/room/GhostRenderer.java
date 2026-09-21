@@ -4,6 +4,7 @@ import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.block.Block;
@@ -109,6 +110,8 @@ public final class GhostRenderer {
     private static final int STRIDE = 11;
     /** Safety ceiling on cached geometry, so a pathological cull set cannot allocate without bound. */
     private static final int MAX_VERTICES = 120_000;
+    /** Maximum amount of ghost geometry work allowed to land in one render pass. */
+    private static final long BAKE_BUDGET_NANOS = 1_500_000L;
     /**
      * Rebake at least this often, so edits to the world do not leave the ghost stale forever.
      *
@@ -127,6 +130,7 @@ public final class GhostRenderer {
     private static float[] geometry = EMPTY_FLOATS;
     private static int[] lights = EMPTY_INTS;
     private static int vertexCount;
+    private static BakeJob bakeJob;
     /** Positions are stored relative to this, so float precision stays usable far from origin. */
     private static double originX, originY, originZ;
 
@@ -448,6 +452,8 @@ public final class GhostRenderer {
     public static void invalidate() {
         cachedMask = null;
         cachedSnapshot = null;
+        cachedAtMs = 0L;
+        bakeJob = null;
         vertexCount = 0;
         lastSubmittedVertexCount = 0;
         // Released rather than merely ignored: at the vertex ceiling these are several megabytes,
@@ -464,7 +470,7 @@ public final class GhostRenderer {
         }
     }
 
-    /** Rebakes only when the cull set has actually been replaced, or the cache has gone stale. */
+    /** Starts or advances a bake without blocking one render pass on the whole cull set. */
     private static void ensureGeometry(MinecraftClient client, ClientWorld world,
                                        SightlineMask mask, RoomSnapshot snapshot) {
         long now = System.currentTimeMillis();
@@ -473,14 +479,14 @@ public final class GhostRenderer {
                 // Block edits do not replace the mask, so without this the ghost could keep drawing
                 // geometry for blocks that have since been mined.
                 || now - cachedAtMs > MAX_CACHE_AGE_MS;
-        if (!stale) {
+        if (!stale && bakeJob == null) {
             return;
         }
 
-        cachedMask = mask;
-        cachedSnapshot = snapshot;
-        cachedAtMs = now;
-        bake(client, world, mask, snapshot);
+        if (bakeJob == null || bakeJob.mask != mask || bakeJob.snapshot != snapshot) {
+            bakeJob = new BakeJob(client, world, mask, snapshot);
+        }
+        advanceBake(now);
     }
 
     /** True if this block is one the cullers removed, from either source. */
@@ -491,39 +497,73 @@ public final class GhostRenderer {
         return snapshot != null && snapshot.test(x, y, z) == RoomSnapshot.CULL;
     }
 
-    private static void bake(MinecraftClient client, ClientWorld world,
-                             SightlineMask mask, RoomSnapshot snapshot) {
-        long started = System.nanoTime();
-        vertexCount = 0;
-        if (mask == null && snapshot == null) {
-            CullDebug.recordGhostBake(System.nanoTime() - started, 0);
-            return;
-        }
-
-        // Origin is the camera entity's block, so stored offsets stay small and float precision
-        // holds up at far-flung world coordinates.
-        Vec3d anchor = client.cameraEntity != null ? client.cameraEntity.getPos() : Vec3d.ZERO;
-        originX = Math.floor(anchor.x);
-        originY = Math.floor(anchor.y);
-        originZ = Math.floor(anchor.z);
-
-        Baker baker = new Baker(client, world, mask, snapshot);
-        if (mask != null) {
-            LongSet blocks = mask.blocks();
-            for (LongIterator it = blocks.iterator(); it.hasNext(); ) {
-                long packed = it.nextLong();
-                baker.block(BlockPos.unpackLongX(packed),
-                        BlockPos.unpackLongY(packed), BlockPos.unpackLongZ(packed));
+    /** Advances a pending bake for a small budget and publishes it only when complete. */
+    private static void advanceBake(long now) {
+        BakeJob job = bakeJob;
+        long deadline = System.nanoTime() + BAKE_BUDGET_NANOS;
+        do {
+            if (!job.nextBlock()) {
+                geometry = job.baker.verts.toFloatArray();
+                lights = job.baker.lights.toIntArray();
+                vertexCount = job.baker.lights.size();
+                originX = job.originX;
+                originY = job.originY;
+                originZ = job.originZ;
+                cachedMask = job.mask;
+                cachedSnapshot = job.snapshot;
+                cachedAtMs = now;
+                bakeJob = null;
+                CullDebug.recordGhostBake(System.nanoTime() - job.startedNanos,
+                        job.baker.fluidVertices);
+                return;
             }
-        }
-        if (snapshot != null) {
-            snapshot.forEachCulledBlock(baker::block);
+            long packed = job.currentBlock;
+            job.baker.block(BlockPos.unpackLongX(packed),
+                    BlockPos.unpackLongY(packed), BlockPos.unpackLongZ(packed));
+        } while (System.nanoTime() < deadline);
+    }
+
+    /** Incremental render-thread job for one culling result. */
+    private static final class BakeJob {
+        final SightlineMask mask;
+        final RoomSnapshot snapshot;
+        final Baker baker;
+        final long startedNanos = System.nanoTime();
+        final double originX, originY, originZ;
+        final LongIterator maskBlocks;
+        final LongArrayList roomBlocks;
+        int roomIndex;
+        long currentBlock;
+
+        BakeJob(MinecraftClient client, ClientWorld world, SightlineMask mask,
+                RoomSnapshot snapshot) {
+            this.mask = mask;
+            this.snapshot = snapshot;
+            Vec3d anchor = client.cameraEntity != null ? client.cameraEntity.getPos() : Vec3d.ZERO;
+            this.originX = Math.floor(anchor.x);
+            this.originY = Math.floor(anchor.y);
+            this.originZ = Math.floor(anchor.z);
+            this.maskBlocks = mask == null ? null : mask.blocks().iterator();
+            this.roomBlocks = new LongArrayList();
+            if (snapshot != null) {
+                snapshot.forEachCulledBlock((x, y, z) ->
+                        this.roomBlocks.add(BlockPos.asLong(x, y, z)));
+            }
+            this.baker = new Baker(client, world, mask, snapshot,
+                    this.originX, this.originY, this.originZ);
         }
 
-        geometry = baker.verts.toFloatArray();
-        lights = baker.lights.toIntArray();
-        vertexCount = baker.lights.size();
-        CullDebug.recordGhostBake(System.nanoTime() - started, baker.fluidVertices);
+        boolean nextBlock() {
+            if (this.maskBlocks != null && this.maskBlocks.hasNext()) {
+                this.currentBlock = this.maskBlocks.nextLong();
+                return true;
+            }
+            if (this.roomIndex < this.roomBlocks.size()) {
+                this.currentBlock = this.roomBlocks.getLong(this.roomIndex++);
+                return true;
+            }
+            return false;
+        }
     }
 
     /** Walks the cull set once and flattens the visible faces into arrays. */
@@ -540,11 +580,17 @@ public final class GhostRenderer {
         final FluidCaptureConsumer fluidConsumer = new FluidCaptureConsumer(this);
         int fluidVertices;
 
-        Baker(MinecraftClient client, ClientWorld world, SightlineMask mask, RoomSnapshot snapshot) {
+        final double originX, originY, originZ;
+
+        Baker(MinecraftClient client, ClientWorld world, SightlineMask mask, RoomSnapshot snapshot,
+              double originX, double originY, double originZ) {
             this.client = client;
             this.world = world;
             this.mask = mask;
             this.snapshot = snapshot;
+            this.originX = originX;
+            this.originY = originY;
+            this.originZ = originZ;
         }
 
         void block(int x, int y, int z) {
@@ -606,9 +652,9 @@ public final class GhostRenderer {
             if (this.lights.size() >= MAX_VERTICES) {
                 return;
             }
-            this.verts.add((float) (x - originX));
-            this.verts.add((float) (y - originY));
-            this.verts.add((float) (z - originZ));
+            this.verts.add((float) (x - this.originX));
+            this.verts.add((float) (y - this.originY));
+            this.verts.add((float) (z - this.originZ));
             this.verts.add(u);
             this.verts.add(v);
             this.verts.add(nx);
@@ -656,9 +702,9 @@ public final class GhostRenderer {
 
                 for (int i = 0; i < 4; i++) {
                     int o = i * stride;
-                    this.verts.add((float) (bx + Float.intBitsToFloat(data[o]) - originX));
-                    this.verts.add((float) (by + Float.intBitsToFloat(data[o + 1]) - originY));
-                    this.verts.add((float) (bz + Float.intBitsToFloat(data[o + 2]) - originZ));
+                    this.verts.add((float) (bx + Float.intBitsToFloat(data[o]) - this.originX));
+                    this.verts.add((float) (by + Float.intBitsToFloat(data[o + 1]) - this.originY));
+                    this.verts.add((float) (bz + Float.intBitsToFloat(data[o + 2]) - this.originZ));
                     this.verts.add(Float.intBitsToFloat(data[o + 4]));
                     this.verts.add(Float.intBitsToFloat(data[o + 5]));
                     this.verts.add(nx);

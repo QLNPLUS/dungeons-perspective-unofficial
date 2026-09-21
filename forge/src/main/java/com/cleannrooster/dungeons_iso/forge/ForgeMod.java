@@ -3,6 +3,7 @@ package com.cleannrooster.dungeons_iso.forge;
 import com.cleannrooster.dungeons_iso.ClientInit;
 import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.cleannrooster.dungeons_iso.api.cullers.room.GhostRenderer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.client.MinecraftClient;
@@ -81,10 +82,56 @@ public final class ForgeMod {
         public static void registerClientCommands(RegisterClientCommandsEvent event) {
             event.getDispatcher().register(
                     CommandManager.literal("dungeons_iso_debug")
+                            .then(CommandManager.literal("live")
+                                    .then(CommandManager.literal("start")
+                                            .executes(context -> startLiveLog(context,
+                                                    CullDebug.DEFAULT_LIVE_INTERVAL_MILLIS))
+                                            .then(CommandManager.argument("interval_ms",
+                                                    IntegerArgumentType.integer(
+                                                            CullDebug.MIN_LIVE_INTERVAL_MILLIS,
+                                                            CullDebug.MAX_LIVE_INTERVAL_MILLIS))
+                                                    .executes(context -> startLiveLog(context,
+                                                            IntegerArgumentType.getInteger(context,
+                                                                    "interval_ms")))))
+                                    .then(CommandManager.literal("stop")
+                                            .executes(context -> {
+                                                CullDebug.stopLiveLog();
+                                                context.getSource().sendFeedback(
+                                                        () -> net.minecraft.text.Text.literal(
+                                                                CullDebug.liveStatus()), false);
+                                                return Command.SINGLE_SUCCESS;
+                                            }))
+                                    .then(CommandManager.literal("status")
+                                            .executes(context -> {
+                                                context.getSource().sendFeedback(
+                                                        () -> net.minecraft.text.Text.literal(
+                                                                CullDebug.liveStatus()), false);
+                                                return Command.SINGLE_SUCCESS;
+                                            }))
+                                    .executes(context -> {
+                                        context.getSource().sendFeedback(
+                                                () -> net.minecraft.text.Text.literal(
+                                                        CullDebug.liveStatus()), false);
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
                             .executes(context -> {
                                 CullDebug.saveSnapshot();
                                 return Command.SINGLE_SUCCESS;
-                            }));
+                    }));
+        }
+
+        private static int startLiveLog(
+                com.mojang.brigadier.context.CommandContext<net.minecraft.server.command.ServerCommandSource> context,
+                int intervalMillis) {
+            java.nio.file.Path file = CullDebug.startLiveLog(intervalMillis);
+            if (file == null) {
+                context.getSource().sendError(net.minecraft.text.Text.literal(
+                        "Cannot start culling debug: no client world/player or log file error"));
+                return 0;
+            }
+            context.getSource().sendFeedback(
+                    () -> net.minecraft.text.Text.literal(CullDebug.liveStatus()), false);
+            return Command.SINGLE_SUCCESS;
         }
     }
 }

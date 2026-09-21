@@ -1,8 +1,10 @@
 package com.cleannrooster.dungeons_iso.neoforge.client;
 
 import com.cleannrooster.dungeons_iso.ClientInit;
+import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
 import com.cleannrooster.dungeons_iso.config.ConfigScreen;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.server.command.CommandManager;
@@ -43,6 +45,32 @@ class NeoForgeClientGameEvents {
     public static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(
             CommandManager.literal("dperspective")
+                .then(CommandManager.literal("culling_debug")
+                    .then(CommandManager.literal("start")
+                        .executes(ctx -> startLiveLog(ctx, CullDebug.DEFAULT_LIVE_INTERVAL_MILLIS))
+                        .then(CommandManager.argument("interval_ms",
+                                IntegerArgumentType.integer(CullDebug.MIN_LIVE_INTERVAL_MILLIS,
+                                        CullDebug.MAX_LIVE_INTERVAL_MILLIS))
+                            .executes(ctx -> startLiveLog(ctx,
+                                    IntegerArgumentType.getInteger(ctx, "interval_ms")))))
+                    .then(CommandManager.literal("stop")
+                        .executes(ctx -> {
+                            CullDebug.stopLiveLog();
+                            ctx.getSource().sendSuccess(() -> net.minecraft.text.Text.literal(
+                                    CullDebug.liveStatus()), false);
+                            return Command.SINGLE_SUCCESS;
+                        }))
+                    .then(CommandManager.literal("status")
+                        .executes(ctx -> {
+                            ctx.getSource().sendSuccess(() -> net.minecraft.text.Text.literal(
+                                    CullDebug.liveStatus()), false);
+                            return Command.SINGLE_SUCCESS;
+                        }))
+                    .executes(ctx -> {
+                        ctx.getSource().sendSuccess(() -> net.minecraft.text.Text.literal(
+                                CullDebug.liveStatus()), false);
+                        return Command.SINGLE_SUCCESS;
+                    }))
                 .executes(ctx -> {
                     // ConfigScreen cannot load without YACL, so the guard stays outside it.
                     if (!com.cleannrooster.dungeons_iso.config.Config.GSON.hasScreen()) {
@@ -56,5 +84,18 @@ class NeoForgeClientGameEvents {
                     return Command.SINGLE_SUCCESS;
                 })
         );
+    }
+
+    private static int startLiveLog(
+            com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> ctx,
+            int intervalMillis) {
+        java.nio.file.Path file = CullDebug.startLiveLog(intervalMillis);
+        if (file == null) {
+            ctx.getSource().sendError(net.minecraft.text.Text.literal(
+                    "Cannot start culling debug: no client world/player or log file error"));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> net.minecraft.text.Text.literal(CullDebug.liveStatus()), false);
+        return Command.SINGLE_SUCCESS;
     }
 }

@@ -13,9 +13,11 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
+import java.io.BufferedWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,8 +47,22 @@ public final class CullDebug {
     private static volatile int ghostFluidVertices;
     private static final AtomicInteger FLUID_CULLED = new AtomicInteger();
     private static long lastAnomalyLogNanos;
+    private static volatile boolean liveLogging;
+    private static volatile Path liveLogPath;
+    private static volatile int liveIntervalMillis;
+    private static BufferedWriter liveWriter;
+    private static long liveNextSampleNanos;
+    private static long liveStartedNanos;
+    private static int liveSampleCount;
+    private static long frameStartNanos;
+    private static volatile long lastFrameNanos;
+    private static volatile long maxFrameNanos;
     private static final DateTimeFormatter SNAPSHOT_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS");
+
+    public static final int DEFAULT_LIVE_INTERVAL_MILLIS = 250;
+    public static final int MIN_LIVE_INTERVAL_MILLIS = 100;
+    public static final int MAX_LIVE_INTERVAL_MILLIS = 60000;
 
     private CullDebug() {
     }
@@ -82,6 +98,108 @@ public final class CullDebug {
             maxGhostRenderNanos = nanos;
         }
         maybeLogAnomaly();
+    }
+
+    /** Starts a lightweight, line-oriented capture intended to run while the camera is moving. */
+    public static Path startLiveLog(int intervalMillis) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || client.player == null) {
+            return null;
+        }
+
+        stopLiveLog();
+        int interval = Math.max(MIN_LIVE_INTERVAL_MILLIS,
+                Math.min(MAX_LIVE_INTERVAL_MILLIS, intervalMillis));
+        try {
+            Path directory = client.runDirectory.toPath().resolve("dungeons_iso-debug");
+            Files.createDirectories(directory);
+            Path file = directory.resolve("culling-live-"
+                    + LocalDateTime.now().format(SNAPSHOT_TIME) + "-" + System.nanoTime() + ".log");
+            BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            writer.write("# dungeons_iso live culling diagnostic");
+            writer.newLine();
+            writer.write("# started=" + LocalDateTime.now());
+            writer.newLine();
+            writer.write("# intervalMs=" + interval);
+            writer.newLine();
+            writer.write("# samples are lightweight and do not include per-block neighborhood dumps");
+            writer.newLine();
+            writer.flush();
+
+            liveWriter = writer;
+            liveLogPath = file;
+            liveIntervalMillis = interval;
+            liveStartedNanos = System.nanoTime();
+            liveNextSampleNanos = 0L;
+            liveSampleCount = 0;
+            lastFrameNanos = 0L;
+            maxFrameNanos = 0L;
+            liveLogging = true;
+            LOG.info("Started live culling diagnostic: intervalMs={} file={}", interval,
+                    file.toAbsolutePath());
+            return file;
+        } catch (IOException error) {
+            LOG.error("Could not start live culling diagnostic", error);
+            return null;
+        }
+    }
+
+    /** Stops the live capture and closes its file. Safe to call when it is already stopped. */
+    public static Path stopLiveLog() {
+        BufferedWriter writer = liveWriter;
+        Path path = liveLogPath;
+        liveLogging = false;
+        liveWriter = null;
+        liveNextSampleNanos = 0L;
+        if (writer != null) {
+            try {
+                writer.write("# stopped=" + LocalDateTime.now()
+                        + " samples=" + liveSampleCount);
+                writer.newLine();
+                writer.flush();
+                writer.close();
+            } catch (IOException error) {
+                LOG.warn("Could not close live culling diagnostic", error);
+            }
+            LOG.info("Stopped live culling diagnostic: file={}", path == null ? "unknown"
+                    : path.toAbsolutePath());
+        }
+        return path;
+    }
+
+    public static boolean isLiveLogging() {
+        return liveLogging;
+    }
+
+    public static String liveStatus() {
+        if (!liveLogging) {
+            return "culling live debug: stopped";
+        }
+        return "culling live debug: running intervalMs=" + liveIntervalMillis
+                + " samples=" + liveSampleCount + " file="
+                + (liveLogPath == null ? "unknown" : liveLogPath.toAbsolutePath());
+    }
+
+    /** Called at the beginning of Minecraft's render method when live capture is active. */
+    public static void frameStart() {
+        if (liveLogging) {
+            frameStartNanos = System.nanoTime();
+        }
+    }
+
+    /** Called at the end of Minecraft's render method when live capture is active. */
+    public static void frameEnd() {
+        long start = frameStartNanos;
+        if (start == 0L || !liveLogging) {
+            return;
+        }
+        long elapsed = System.nanoTime() - start;
+        frameStartNanos = 0L;
+        lastFrameNanos = elapsed;
+        if (elapsed > maxFrameNanos) {
+            maxFrameNanos = elapsed;
+        }
     }
 
     private static void maybeLogAnomaly() {
@@ -351,6 +469,7 @@ public final class CullDebug {
      * nothing once things work. Called every client tick.
      */
     public static void tickLog() {
+        writeLiveSampleIfDue();
         // Off unless asked for. This never falls silent on its own — the scan counter advances
         // every second, so the summary always differs from the last one and always logs.
         if (!Config.GSON.instance().cullDebugLog) {
@@ -402,6 +521,90 @@ public final class CullDebug {
         } else if (!healthy) {
             LOG.info(summary);
         }
+    }
+
+    private static void writeLiveSampleIfDue() {
+        if (!liveLogging || liveWriter == null) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (now < liveNextSampleNanos) {
+            return;
+        }
+        liveNextSampleNanos = now + liveIntervalMillis * 1_000_000L;
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || client.player == null) {
+            return;
+        }
+        try {
+            RoomSnapshot room = RoomScanner.INSTANCE.snapshot();
+            SightlineMask mask = SightlineScanner.INSTANCE.mask();
+            Camera camera = client.gameRenderer.getCamera();
+            Vec3d cameraPos = camera == null ? Vec3d.ZERO : camera.getPos();
+            int playerY = client.player.getBlockPos().getY();
+            long elapsedNanos = now - liveStartedNanos;
+
+            StringBuilder sample = new StringBuilder(900);
+            sample.append("sample=").append(++liveSampleCount)
+                    .append(" elapsedMs=").append(nanosToMillis(elapsedNanos))
+                    .append(" fps=").append(client.getCurrentFps())
+                    .append(" frameMs=").append(nanosToMillis(lastFrameNanos))
+                    .append(" frameMaxMs=").append(nanosToMillis(maxFrameNanos))
+                    .append(" compatMs=").append(nanosToMillis(lastCompatNanos))
+                    .append(" ghostMs=").append(nanosToMillis(lastGhostRenderNanos))
+                    .append(" bakeMs=").append(nanosToMillis(lastGhostBakeNanos))
+                    .append(" visibleSections=").append(visibleSections)
+                    .append(" rebuildQueue=").append(SectionRebuildQueue.INSTANCE.size())
+                    .append(" drained=").append(SectionRebuildQueue.INSTANCE.lastDrained())
+                    .append(" playerY=").append(playerY)
+                    .append(" cameraY=").append(decimal(cameraPos.y))
+                    .append(" cameraDeltaY=").append(decimal(cameraPos.y - client.player.getY()))
+                    .append(" cameraDistance=").append(decimal(
+                            cameraPos.distanceTo(client.player.getPos())))
+                    .append(" yaw=").append(Mod.yaw)
+                    .append(" pitch=").append(Mod.pitch)
+                    .append(" roomBlocks=").append(room == null ? 0 : room.columnCount())
+                    .append(" roomSections=").append(room == null ? 0 : room.sections().size())
+                    .append(" roomBelowBlocks=").append(room == null ? 0
+                            : room.culledBlockCountBelow(playerY))
+                    .append(" roomBelowSections=").append(room == null ? 0
+                            : room.culledSectionCountBelow(playerY))
+                    .append(" shapeBlocks=").append(mask == null ? 0 : mask.blockCount())
+                    .append(" shapeSections=").append(mask == null ? 0 : mask.sections().size())
+                    .append(" shapeBelowBlocks=").append(mask == null ? 0
+                            : mask.blockCountBelow(playerY))
+                    .append(" shapeBelowSections=").append(mask == null ? 0
+                            : mask.sectionCountBelow(playerY))
+                    .append(" underground=").append(SightlineScanner.INSTANCE.lastUnderground)
+                    .append(" broadUnderground=").append(SightlineScanner.INSTANCE.lastBroadUnderground)
+                    .append(" shapeResult=").append(sanitize(SightlineScanner.INSTANCE.lastResult))
+                    .append(" roomResult=").append(sanitize(RoomScanner.INSTANCE.lastResult))
+                    .append(" ghostVertices=").append(GhostRenderer.lastVertexCount)
+                    .append(" submittedVertices=").append(GhostRenderer.lastSubmittedVertexCount)
+                    .append(" fluidGhostVertices=").append(ghostFluidVertices)
+                    .append(" fluidCulled=").append(FLUID_CULLED.get())
+                    .append(" shouldReload=").append(Mod.shouldReload)
+                    .append(" blocked=").append(Mod.isBlocked)
+                    .append(" enabled=").append(Mod.enabled);
+            liveWriter.write(sample.toString());
+            liveWriter.newLine();
+            liveWriter.flush();
+        } catch (IOException error) {
+            LOG.error("Live culling diagnostic stopped because the log could not be written", error);
+            stopLiveLog();
+        }
+    }
+
+    private static String sanitize(String value) {
+        if (value == null || value.isEmpty()) {
+            return "none";
+        }
+        return value.replace(' ', '_').replace('\n', '_').replace('\r', '_');
+    }
+
+    private static String decimal(double value) {
+        return String.format(java.util.Locale.ROOT, "%.3f", value);
     }
 
     public static void report() {
