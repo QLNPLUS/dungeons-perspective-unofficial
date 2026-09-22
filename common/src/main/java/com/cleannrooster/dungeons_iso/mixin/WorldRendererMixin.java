@@ -20,6 +20,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class WorldRendererMixin {
 
     /**
+     * The vanilla entity loop skips the focused player while the camera reports first person.
+     * The displaced camera can briefly report that state during perspective changes, so keep the
+     * protected player area on the render path even while the camera state catches up.
+     */
+    @Redirect(
+            method = "render",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/render/Camera;isThirdPerson()Z"
+            )
+    )
+    private boolean dungeons$keepProtectedEntityVisible(Camera camera) {
+        return camera.isThirdPerson()
+                || (camera.getFocusedEntity() != null
+                && EntityVisibility.isProtected(camera.getFocusedEntity()));
+    }
+
+    /**
      * A displaced camera can be outside the section containing a nearby entity. Letting that
      * section fail the normal readiness check makes the entity disappear at certain camera angles,
      * even though it is close to the player and should remain available to render.
