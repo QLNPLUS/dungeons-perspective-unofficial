@@ -24,6 +24,7 @@
     "compat.embeddium.EmbeddiumBlockRendererMixin",
     "compat.embeddium.EmbeddiumFluidRendererMixin",
     "EntityRenderDispatcherMixin",
+    "compat.entityculling.EntityCullingHelperMixin",
     "compat.embeddium.EmbeddiumRenderSectionManagerMixin"
 
   ],

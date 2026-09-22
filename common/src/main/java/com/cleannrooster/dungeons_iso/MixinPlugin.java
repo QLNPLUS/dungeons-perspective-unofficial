@@ -38,11 +38,11 @@ public class MixinPlugin  implements IMixinConfigPlugin {
                     String modId = parts[i + 1];
                     // The Forge mod list is not ready during early mixin selection. Probe the
                     // target resource instead; Class.forName would define it too early.
-                    boolean loaded = modId.equals("embeddium")
+                    boolean loaded = (modId.equals("embeddium") || modId.equals("entityculling"))
                             ? ModCompat.isClassResourcePresent(targetClassName)
                             : ModCompat.isModLoaded(modId);
-                    if (modId.equals("embeddium")) {
-                        LOGGER.debug("Embeddium compatibility mixins {}",
+                    if (modId.equals("embeddium") || modId.equals("entityculling")) {
+                        LOGGER.debug("{} compatibility mixins {}", modId,
                                 loaded ? "enabled" : "disabled: target class resource not found");
                     }
                     return loaded;
