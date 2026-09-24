@@ -10,6 +10,7 @@ import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.block.WallMountedBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.Frustum;
@@ -554,21 +555,17 @@ public class MouseMixin implements MouseAccessor {
 
 
     private void scrollInHotbarXIV(PlayerInventory instance, double scrollAmount) {
-
-            if (Mod.enabled && Config.GSON.instance().scrollWheelZoom ) {
-
-
-                Mod.zoom = (net.minecraft.util.math.MathHelper.clamp(Mod.zoom - (float) scrollAmount * 0.2f,2F/net.minecraft.util.math.MathHelper.clamp(Config.GSON.instance().zoomFactor,1F,1.5F),10.0F));
-
-            } else {
-
-                instance.scrollInHotbar(scrollAmount);
-
-
-            }
-
-
+        Config config = Config.GSON.instance();
+        if (Mod.enabled && (config.scrollWheelZoom || Screen.hasControlDown())) {
+            Mod.zoom = net.minecraft.util.math.MathHelper.clamp(
+                Mod.zoom - (float) scrollAmount * 0.2f,
+                2F / net.minecraft.util.math.MathHelper.clamp(config.zoomFactor, 1F, 1.5F),
+                10.0F
+            );
+        } else {
+            instance.scrollInHotbar(scrollAmount);
         }
+    }
 
     @Override
     public void setRightClick(boolean bool) {

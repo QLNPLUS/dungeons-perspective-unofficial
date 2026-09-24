@@ -201,7 +201,10 @@ public class SodiumCompat {
      */
     private static boolean tickSightlineScanner(ClientWorld world, Entity cameraEntity, BlockPos playerPos) {
         boolean visibilityDirty = false;
-        boolean shouldApply = Mod.enabled && Mod.shouldRebuild() && Config.GSON.instance().shapeCulling;
+        // The sightline scanner already uses the final rendered camera position. The legacy
+        // shouldRebuild gate is driven by CameraMixin's pre-modulation ray, which can point to
+        // the opposite side of the player and leave a real camera obstruction unapplied.
+        boolean shouldApply = Mod.enabled && Config.GSON.instance().shapeCulling;
         LongOpenHashSet toggled = SightlineScanner.INSTANCE.setActive(shouldApply);
         if (toggled != null) {
             SectionRebuildQueue.INSTANCE.submit(toggled, playerPos);

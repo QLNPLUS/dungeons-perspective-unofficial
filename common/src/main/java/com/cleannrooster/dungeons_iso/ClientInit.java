@@ -82,13 +82,13 @@ public class ClientInit {
         );
         zoomInBinding = new KeyBinding(
                 "dungeons_iso.binds.zoomIn",
-                InputUtil.Type.MOUSE,
+                InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_UP,
                 "dungeons_iso.binds.category"
         );
         zoomOutBinding = new KeyBinding(
                 "dungeons_iso.binds.zoomOut",
-                InputUtil.Type.MOUSE,
+                InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_DOWN,
                 "dungeons_iso.binds.category"
         );
