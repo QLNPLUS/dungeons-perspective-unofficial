@@ -45,6 +45,10 @@ repositories {
     maven { url = 'https://maven.kosmx.dev/' }
     maven { url = 'https://maven.su5ed.dev/releases' }
     maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+    }
+    maven {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
@@ -64,6 +68,9 @@ dependencies {
     // Optional compatibility integrations used by the upstream common code.
     modCompileOnly "io.wispforest:owo-lib:${owo_version}"
     modCompileOnly "dev.kosmx.player-anim:player-animation-lib-forge:${player_anim_version}"
+    // Optional Origins compatibility; compile against the exact Forge APIs without bundling them.
+    modCompileOnly "curse.maven:apoli-forge-975561:5404008"
+    modCompileOnly "curse.maven:calio-977891:5404005"
 
     // Embeddium 0.3.x is an optional local renderer dependency. It is compile-only so the mod
     // remains installable without Embeddium, while Mixin's annotation processor can still resolve

@@ -1,8 +1,6 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.*;
-import com.cleannrooster.dungeons_iso.compat.MidnightControlsCompat;
-import com.cleannrooster.dungeons_iso.ModCompat;
 import net.minecraft.client.tutorial.TutorialManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.DoorBlock;
@@ -139,9 +137,6 @@ public class MouseMixin implements MouseAccessor {
             InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_NORMAL, x, y);
         }
     }
-    int lasti;
-    int timeGone = 0;
-
     /**
      * Computes the ray origin for the current mouse position.
      * In orthographic mode, the origin is offset from the camera along the view plane.
@@ -168,6 +163,9 @@ public class MouseMixin implements MouseAccessor {
         MinecraftClient client = MinecraftClient.getInstance();
         BlockState blockState = client.player.getWorld().getBlockState(pos);
         FluidState fluidState = client.player.getWorld().getFluidState(pos);
+        if (blockState.isAir() && fluidState.isEmpty()) {
+            return null;
+        }
         Vec3d vec3d = innerContext.getStart();
         Vec3d vec3d2 = innerContext.getEnd();
         VoxelShape voxelShape = innerContext.getBlockShape(blockState, client.player.getWorld(), pos);
@@ -184,6 +182,9 @@ public class MouseMixin implements MouseAccessor {
         MinecraftClient client = MinecraftClient.getInstance();
         BlockState blockState = client.player.getWorld().getBlockState(pos);
         FluidState fluidState = client.player.getWorld().getFluidState(pos);
+        if (blockState.isAir() && fluidState.isEmpty()) {
+            return null;
+        }
         Vec3d vec3d = innerContext.getStart();
         Vec3d vec3d2 = innerContext.getEnd();
         VoxelShape voxelShape = innerContext.getBlockShape(blockState, client.player.getWorld(), pos);
@@ -230,29 +231,6 @@ public class MouseMixin implements MouseAccessor {
         Entity cameraEntity = client.cameraEntity;
 
         if (Mod.enabled && cameraEntity != null && client.player != null) {
-
-            boolean isController = false;
-            if (ModCompat.isModLoaded("midnightcontrols")) {
-                isController = MidnightControlsCompat.isEnabled();
-            }
-            if (isController) {
-                if (timeGone > 40) {
-                    InputUtil.setCursorParameters(client.getWindow().getHandle(), InputUtil.GLFW_CURSOR_DISABLED,
-                            x, y
-                    );
-                    Mod.noMouse = true;
-                }
-                if (i == lasti) {
-                    timeGone++;
-                } else {
-                    if (timeGone > 40) {
-                        timeGone = 0;
-                        InputUtil.setCursorParameters(client.getWindow().getHandle(), InputUtil.GLFW_CURSOR_NORMAL,
-                                x, y
-                        );
-                    }
-                }
-            }
             if (client.options.pickItemKey.isPressed() || ClientInit.moveCameraBinding.isPressed() || Mod.rotateToggle) {
                 if (lastX == null || lastY == null) {
                     InputUtil.setCursorParameters(client.getWindow().getHandle(), InputUtil.GLFW_CURSOR_DISABLED,

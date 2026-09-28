@@ -31,6 +31,20 @@ public class MixinPlugin  implements IMixinConfigPlugin {
             return false;
         }
 
+        if (mixinClassName.equals("com.cleannrooster.dungeons_iso.mixin.origin.AttributeModifyTransferPowerMixin")
+                || mixinClassName.equals("com.cleannrooster.dungeons_iso.mixin.origin.PreventBlockActionPowerMixin")) {
+            boolean apoliPresent = ModCompat.isClassResourcePresent(
+                    "io.github.edwinmindcraft.apoli.common.registry.ApoliPowers");
+            boolean calioPresent = ModCompat.isClassResourcePresent("io.github.apace100.calio.Calio");
+            boolean targetPresent = ModCompat.isClassResourcePresent(targetClassName);
+            boolean enabled = apoliPresent && calioPresent && targetPresent;
+
+            LOGGER.debug("origin compatibility Mixin {}", enabled
+                    ? "enabled: Apoli and Calio are present"
+                    : "disabled: Apoli, Calio, or the target class is absent");
+            return enabled;
+        }
+
         if (mixinClassName.contains(".compat.")) {
             String[] parts = mixinClassName.split("\\.");
             for (int i = 0; i < parts.length; i++) {
