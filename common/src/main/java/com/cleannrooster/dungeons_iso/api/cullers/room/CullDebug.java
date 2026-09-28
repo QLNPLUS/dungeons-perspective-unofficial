@@ -2,11 +2,15 @@ package com.cleannrooster.dungeons_iso.api.cullers.room;
 
 import com.cleannrooster.dungeons_iso.config.Config;
 import com.cleannrooster.dungeons_iso.mod.Mod;
+import com.cleannrooster.dungeons_iso.util.EntityVisibility;
+import com.cleannrooster.dungeons_iso.api.Ortho;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -57,6 +61,37 @@ public final class CullDebug {
     private static long frameStartNanos;
     private static volatile long lastFrameNanos;
     private static volatile long maxFrameNanos;
+    private static final int FRAME_TIME_SAMPLE_CAPACITY = 120;
+    private static final long[] FRAME_TIME_SAMPLES = new long[FRAME_TIME_SAMPLE_CAPACITY];
+    private static int frameTimeSampleCount;
+    private static int frameTimeSampleIndex;
+    private static int entityRenderChecksThisFrame;
+    private static int entityRenderPassedThisFrame;
+    private static int entityRenderRejectedThisFrame;
+    private static int entityRenderRejectedNearPlayerThisFrame;
+    private static int entityRenderDistanceRescuedThisFrame;
+    private static int entityRenderScreenCulledThisFrame;
+    private static int rejectedEntitySampleCount;
+    private static int distanceRescueSampleCount;
+    private static int screenCullSampleCount;
+    private static final int REJECTED_ENTITY_SAMPLE_CAPACITY = 8;
+    private static final int DISTANCE_RESCUE_SAMPLE_CAPACITY = 8;
+    private static final int SCREEN_CULL_SAMPLE_CAPACITY = 8;
+    private static final String[] REJECTED_ENTITY_SAMPLES_THIS_FRAME =
+            new String[REJECTED_ENTITY_SAMPLE_CAPACITY];
+    private static final String[] DISTANCE_RESCUE_SAMPLES_THIS_FRAME =
+            new String[DISTANCE_RESCUE_SAMPLE_CAPACITY];
+    private static final String[] SCREEN_CULL_SAMPLES_THIS_FRAME =
+            new String[SCREEN_CULL_SAMPLE_CAPACITY];
+    private static volatile int lastEntityRenderChecks;
+    private static volatile int lastEntityRenderPassed;
+    private static volatile int lastEntityRenderRejected;
+    private static volatile int lastEntityRenderRejectedNearPlayer;
+    private static volatile int lastEntityRenderDistanceRescued;
+    private static volatile int lastEntityRenderScreenCulled;
+    private static volatile String[] lastRejectedEntitySamples = new String[0];
+    private static volatile String[] lastDistanceRescueSamples = new String[0];
+    private static volatile String[] lastScreenCullSamples = new String[0];
     private static final DateTimeFormatter SNAPSHOT_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS");
 
@@ -69,7 +104,118 @@ public final class CullDebug {
 
     public static void toggleOverlay() {
         overlayEnabled = !overlayEnabled;
+        if (overlayEnabled) {
+            resetFrameMetrics();
+        }
         LOG.info("Realtime culling overlay {}", overlayEnabled ? "enabled" : "disabled");
+    }
+
+    private static void resetFrameMetrics() {
+        frameTimeSampleCount = 0;
+        frameTimeSampleIndex = 0;
+        lastFrameNanos = 0L;
+        maxFrameNanos = 0L;
+        frameStartNanos = 0L;
+        entityRenderChecksThisFrame = 0;
+        entityRenderPassedThisFrame = 0;
+        entityRenderRejectedThisFrame = 0;
+        entityRenderRejectedNearPlayerThisFrame = 0;
+        entityRenderDistanceRescuedThisFrame = 0;
+        entityRenderScreenCulledThisFrame = 0;
+        rejectedEntitySampleCount = 0;
+        distanceRescueSampleCount = 0;
+        screenCullSampleCount = 0;
+        lastEntityRenderChecks = 0;
+        lastEntityRenderPassed = 0;
+        lastEntityRenderRejected = 0;
+        lastEntityRenderRejectedNearPlayer = 0;
+        lastEntityRenderDistanceRescued = 0;
+        lastEntityRenderScreenCulled = 0;
+        lastRejectedEntitySamples = new String[0];
+        lastDistanceRescueSamples = new String[0];
+        lastScreenCullSamples = new String[0];
+    }
+
+    /** Records the final vanilla shouldRender result while the overlay or live capture is active. */
+    public static void recordEntityRenderCheck(Entity entity, boolean passed,
+                                               double cameraX, double cameraY, double cameraZ) {
+        if (!overlayEnabled && !liveLogging) {
+            return;
+        }
+        entityRenderChecksThisFrame++;
+        if (passed) {
+            entityRenderPassedThisFrame++;
+        } else {
+            entityRenderRejectedThisFrame++;
+            if (EntityVisibility.isProtected(entity)) {
+                entityRenderRejectedNearPlayerThisFrame++;
+                if (rejectedEntitySampleCount < REJECTED_ENTITY_SAMPLE_CAPACITY) {
+                    MinecraftClient client = MinecraftClient.getInstance();
+                    double playerDistance = client.player == null ? -1.0D
+                            : Math.sqrt(entity.squaredDistanceTo(client.player));
+                    double cameraDistance = Math.sqrt(
+                            entity.squaredDistanceTo(cameraX, cameraY, cameraZ));
+                    REJECTED_ENTITY_SAMPLES_THIS_FRAME[rejectedEntitySampleCount++] =
+                            Registries.ENTITY_TYPE.getId(entity.getType())
+                                    + " pos=" + entity.getBlockPos()
+                                    + " playerDist=" + decimal(playerDistance)
+                                    + " cameraDist=" + decimal(cameraDistance);
+                }
+            }
+        }
+    }
+
+    public static boolean isCollectingEntityVisibility() {
+        return overlayEnabled || liveLogging;
+    }
+
+    /** Records entities rejected by the tighter screen projection after conservative culling. */
+    public static void recordEntityScreenCull(Entity entity) {
+        if (!isCollectingEntityVisibility()) {
+            return;
+        }
+        entityRenderScreenCulledThisFrame++;
+        if (screenCullSampleCount < SCREEN_CULL_SAMPLE_CAPACITY) {
+            SCREEN_CULL_SAMPLES_THIS_FRAME[screenCullSampleCount++] =
+                    Registries.ENTITY_TYPE.getId(entity.getType())
+                            + " pos=" + entity.getBlockPos();
+        }
+    }
+
+    /** Records cases where the displaced camera alone would trip an entity's distance limit. */
+    public static void recordEntityDistanceRescue(Entity entity,
+                                                  double cameraDistance,
+                                                  double playerDistance) {
+        if (!isCollectingEntityVisibility()) {
+            return;
+        }
+        entityRenderDistanceRescuedThisFrame++;
+        if (distanceRescueSampleCount < DISTANCE_RESCUE_SAMPLE_CAPACITY) {
+            DISTANCE_RESCUE_SAMPLES_THIS_FRAME[distanceRescueSampleCount++] =
+                    Registries.ENTITY_TYPE.getId(entity.getType())
+                            + " pos=" + entity.getBlockPos()
+                            + " reason=nearest-origin"
+                            + " cameraDist=" + decimal(cameraDistance)
+                            + " playerDist=" + decimal(playerDistance);
+        }
+    }
+
+    /** Records a pickup entity rescued by the minimum bounding-box render distance. */
+    public static void recordEntitySizeDistanceRescue(Entity entity, double distance,
+                                                      double vanillaRange, double extendedRange) {
+        if (!isCollectingEntityVisibility()) {
+            return;
+        }
+        entityRenderDistanceRescuedThisFrame++;
+        if (distanceRescueSampleCount < DISTANCE_RESCUE_SAMPLE_CAPACITY) {
+            DISTANCE_RESCUE_SAMPLES_THIS_FRAME[distanceRescueSampleCount++] =
+                    Registries.ENTITY_TYPE.getId(entity.getType())
+                            + " pos=" + entity.getBlockPos()
+                            + " reason=small-bounds-floor"
+                            + " distance=" + decimal(distance)
+                            + " vanillaRange=" + decimal(vanillaRange)
+                            + " adjustedRange=" + decimal(extendedRange);
+        }
     }
 
     public static void recordCompatNanos(long nanos) {
@@ -133,8 +279,7 @@ public final class CullDebug {
             liveStartedNanos = System.nanoTime();
             liveNextSampleNanos = 0L;
             liveSampleCount = 0;
-            lastFrameNanos = 0L;
-            maxFrameNanos = 0L;
+            resetFrameMetrics();
             liveLogging = true;
             LOG.info("Started live culling diagnostic: intervalMs={} file={}", interval,
                     file.toAbsolutePath());
@@ -181,17 +326,27 @@ public final class CullDebug {
                 + (liveLogPath == null ? "unknown" : liveLogPath.toAbsolutePath());
     }
 
-    /** Called at the beginning of Minecraft's render method when live capture is active. */
+    /** Starts frame sampling when the overlay or live capture is active. */
     public static void frameStart() {
-        if (liveLogging) {
-            frameStartNanos = System.nanoTime();
+        if (!liveLogging && !overlayEnabled) {
+            return;
         }
+        frameStartNanos = System.nanoTime();
+        entityRenderChecksThisFrame = 0;
+        entityRenderPassedThisFrame = 0;
+        entityRenderRejectedThisFrame = 0;
+        entityRenderRejectedNearPlayerThisFrame = 0;
+        entityRenderDistanceRescuedThisFrame = 0;
+        entityRenderScreenCulledThisFrame = 0;
+        rejectedEntitySampleCount = 0;
+        distanceRescueSampleCount = 0;
+        screenCullSampleCount = 0;
     }
 
-    /** Called at the end of Minecraft's render method when live capture is active. */
+    /** Publishes frame timing and entity visibility counts for the completed frame. */
     public static void frameEnd() {
         long start = frameStartNanos;
-        if (start == 0L || !liveLogging) {
+        if (start == 0L || (!liveLogging && !overlayEnabled)) {
             return;
         }
         long elapsed = System.nanoTime() - start;
@@ -199,6 +354,87 @@ public final class CullDebug {
         lastFrameNanos = elapsed;
         if (elapsed > maxFrameNanos) {
             maxFrameNanos = elapsed;
+        }
+        FRAME_TIME_SAMPLES[frameTimeSampleIndex] = elapsed;
+        frameTimeSampleIndex = (frameTimeSampleIndex + 1) % FRAME_TIME_SAMPLE_CAPACITY;
+        frameTimeSampleCount = Math.min(frameTimeSampleCount + 1, FRAME_TIME_SAMPLE_CAPACITY);
+        lastEntityRenderChecks = entityRenderChecksThisFrame;
+        lastEntityRenderPassed = entityRenderPassedThisFrame;
+        lastEntityRenderRejected = entityRenderRejectedThisFrame;
+        lastEntityRenderRejectedNearPlayer = entityRenderRejectedNearPlayerThisFrame;
+        lastEntityRenderDistanceRescued = entityRenderDistanceRescuedThisFrame;
+        lastEntityRenderScreenCulled = entityRenderScreenCulledThisFrame;
+        lastRejectedEntitySamples = java.util.Arrays.copyOf(
+                REJECTED_ENTITY_SAMPLES_THIS_FRAME, rejectedEntitySampleCount);
+        lastDistanceRescueSamples = java.util.Arrays.copyOf(
+                DISTANCE_RESCUE_SAMPLES_THIS_FRAME, distanceRescueSampleCount);
+        lastScreenCullSamples = java.util.Arrays.copyOf(
+                SCREEN_CULL_SAMPLES_THIS_FRAME, screenCullSampleCount);
+    }
+
+    private static String rollingFrameTimeSummary() {
+        if (frameTimeSampleCount == 0) {
+            return "warming up";
+        }
+        long total = 0L;
+        long peak = 0L;
+        for (int i = 0; i < frameTimeSampleCount; i++) {
+            long sample = FRAME_TIME_SAMPLES[i];
+            total += sample;
+            peak = Math.max(peak, sample);
+        }
+        return nanosToMillis(total / frameTimeSampleCount) + "ms avg / "
+                + nanosToMillis(peak) + "ms peak, last " + frameTimeSampleCount + " frames";
+    }
+
+    private static String entityRenderSummary() {
+        return "checks=" + lastEntityRenderChecks
+                + " pass=" + lastEntityRenderPassed
+                + " reject=" + lastEntityRenderRejected
+                + " near-player reject=" + lastEntityRenderRejectedNearPlayer
+                + " distance-rescued=" + lastEntityRenderDistanceRescued
+                + " screen-culled=" + lastEntityRenderScreenCulled;
+    }
+
+    private static String formatRejectedEntitySamples() {
+        String[] samples = lastRejectedEntitySamples;
+        return samples.length == 0 ? "none" : String.join(";", samples);
+    }
+
+    private static void appendRejectedEntitySamples(StringBuilder out) {
+        String[] samples = lastRejectedEntitySamples;
+        out.append("entityRejectNearPlayerSamples.count=").append(samples.length).append('\n');
+        for (int i = 0; i < samples.length; i++) {
+            out.append("entityRejectNearPlayerSample[").append(i).append("]=")
+                    .append(samples[i]).append('\n');
+        }
+    }
+
+    private static String formatDistanceRescueSamples() {
+        String[] samples = lastDistanceRescueSamples;
+        return samples.length == 0 ? "none" : String.join(";", samples);
+    }
+
+    private static void appendDistanceRescueSamples(StringBuilder out) {
+        String[] samples = lastDistanceRescueSamples;
+        out.append("entityDistanceRescueSamples.count=").append(samples.length).append('\n');
+        for (int i = 0; i < samples.length; i++) {
+            out.append("entityDistanceRescueSample[").append(i).append("]=")
+                    .append(samples[i]).append('\n');
+        }
+    }
+
+    private static String formatScreenCullSamples() {
+        String[] samples = lastScreenCullSamples;
+        return samples.length == 0 ? "none" : String.join(";", samples);
+    }
+
+    private static void appendScreenCullSamples(StringBuilder out) {
+        String[] samples = lastScreenCullSamples;
+        out.append("entityScreenCullSamples.count=").append(samples.length).append('\n');
+        for (int i = 0; i < samples.length; i++) {
+            out.append("entityScreenCullSample[").append(i).append("]=")
+                    .append(samples[i]).append('\n');
         }
     }
 
@@ -258,7 +494,9 @@ public final class CullDebug {
 
         String[] lines = {
                 "dungeons_iso debug",
-                "FPS " + client.getCurrentFps() + " | compat " + nanosToMillis(lastCompatNanos)
+                "FPS " + client.getCurrentFps() + " | frame " + rollingFrameTimeSummary(),
+                "entity shouldRender " + entityRenderSummary(),
+                "compat " + nanosToMillis(lastCompatNanos)
                         + "ms (max " + nanosToMillis(maxCompatNanos) + "ms)",
                 "ghost " + nanosToMillis(lastGhostRenderNanos) + "ms (max "
                         + nanosToMillis(maxGhostRenderNanos) + "ms) bake "
@@ -273,6 +511,7 @@ public final class CullDebug {
                         + " rebuild " + Mod.shouldRebuild() + " blocked " + Mod.isBlocked,
                 "camera " + (client.gameRenderer.getCamera() == null
                         ? "none" : client.gameRenderer.getCamera().getPos())
+                        + " | zoom " + Mod.getZoom() + " ortho " + Config.GSON.instance().ortho
         };
 
         int y = 4;
@@ -284,10 +523,10 @@ public final class CullDebug {
     }
 
     private static int overlayColor(int line, int queue, int maskBlocks, int visible) {
-        if ((line == 2 && lastGhostRenderNanos >= 12_000_000L)
-                || (line == 3 && queue >= 32)
-                || (line == 4 && maskBlocks >= 7000)
-                || (line == 3 && visible == 0 && Mod.shouldRebuild())) {
+        if ((line == 4 && lastGhostRenderNanos >= 12_000_000L)
+                || (line == 5 && queue >= 32)
+                || (line == 6 && maskBlocks >= 7000)
+                || (line == 5 && visible == 0 && Mod.shouldRebuild())) {
             return 0xFFFF5555;
         }
         return 0xFFE0E0E0;
@@ -349,6 +588,11 @@ public final class CullDebug {
 
         out.append("config.roomCulling=").append(Config.GSON.instance().roomCulling)
                 .append(" shapeCulling=").append(Config.GSON.instance().shapeCulling)
+                .append(" ortho=").append(Config.GSON.instance().ortho)
+                .append(" frustumCulling=").append(Config.GSON.instance().frustumCulling)
+                .append(" orthoFrustumMinScale=")
+                .append(Mod.enabled && Config.GSON.instance().ortho
+                        ? Ortho.CULLING_MIN_SCALE : 0.0F)
                 .append(" disableOcclusion=").append(Config.GSON.instance().disableOcclusionCulling)
                 .append(" terrainSilhouette=").append(Config.GSON.instance().terrainSilhouetteCulling)
                 .append(" dilation=").append(Config.GSON.instance().terrainSilhouetteDilation)
@@ -384,12 +628,24 @@ public final class CullDebug {
                 .append(" fluidCulled=").append(FLUID_CULLED.get()).append('\n');
         out.append("timing.compatMs=").append(nanosToMillis(lastCompatNanos))
                 .append(" compatMaxMs=").append(nanosToMillis(maxCompatNanos))
+                .append(" frameMs=").append(nanosToMillis(lastFrameNanos))
+                .append(" frameMaxMs=").append(nanosToMillis(maxFrameNanos))
+                .append(" entityChecks=").append(lastEntityRenderChecks)
+                .append(" entityPass=").append(lastEntityRenderPassed)
+                .append(" entityReject=").append(lastEntityRenderRejected)
+                .append(" nearPlayerReject=").append(lastEntityRenderRejectedNearPlayer)
+                .append(" distanceRescued=").append(lastEntityRenderDistanceRescued)
+                .append(" screenCulled=").append(lastEntityRenderScreenCulled)
                 .append(" ghostMs=").append(nanosToMillis(lastGhostRenderNanos))
                 .append(" ghostMaxMs=").append(nanosToMillis(maxGhostRenderNanos))
                 .append(" ghostBakeMs=").append(nanosToMillis(lastGhostBakeNanos))
                 .append(" ghostVertices=").append(GhostRenderer.lastVertexCount)
                 .append(" submittedVertices=").append(GhostRenderer.lastSubmittedVertexCount)
                 .append(" fluidGhostVertices=").append(ghostFluidVertices).append('\n');
+
+        appendRejectedEntitySamples(out);
+        appendDistanceRescueSamples(out);
+        appendScreenCullSamples(out);
 
         appendNeighborhood(out, world, "player", playerPos, 6, 6);
         appendNeighborhood(out, world, "camera",
@@ -551,6 +807,19 @@ public final class CullDebug {
                     .append(" fps=").append(client.getCurrentFps())
                     .append(" frameMs=").append(nanosToMillis(lastFrameNanos))
                     .append(" frameMaxMs=").append(nanosToMillis(maxFrameNanos))
+                    .append(" entityChecks=").append(lastEntityRenderChecks)
+                    .append(" entityPass=").append(lastEntityRenderPassed)
+                    .append(" entityReject=").append(lastEntityRenderRejected)
+                    .append(" nearPlayerReject=").append(lastEntityRenderRejectedNearPlayer)
+                    .append(" distanceRescued=").append(lastEntityRenderDistanceRescued)
+                    .append(" screenCulled=").append(lastEntityRenderScreenCulled)
+                    .append(" rejectedSamples=").append(formatRejectedEntitySamples())
+                    .append(" rescuedSamples=").append(formatDistanceRescueSamples())
+                    .append(" screenCullSamples=").append(formatScreenCullSamples())
+                    .append(" ortho=").append(Config.GSON.instance().ortho)
+                    .append(" orthoFrustumMinScale=")
+                    .append(Mod.enabled && Config.GSON.instance().ortho
+                            ? Ortho.CULLING_MIN_SCALE : 0.0F)
                     .append(" compatMs=").append(nanosToMillis(lastCompatNanos))
                     .append(" ghostMs=").append(nanosToMillis(lastGhostRenderNanos))
                     .append(" bakeMs=").append(nanosToMillis(lastGhostBakeNanos))
@@ -669,6 +938,8 @@ public final class CullDebug {
         line(client, Formatting.YELLOW, "Rebuild queue: " + SectionRebuildQueue.INSTANCE.size()
                 + " sections pending, " + Config.GSON.instance().roomSectionsPerTick + "/tick");
         line(client, Formatting.YELLOW, "Performance: fps=" + client.getCurrentFps()
+                + " frame=" + rollingFrameTimeSummary()
+                + " entity shouldRender " + entityRenderSummary()
                 + " compat=" + nanosToMillis(lastCompatNanos) + "ms"
                 + " ghost=" + nanosToMillis(lastGhostRenderNanos) + "ms"
                 + " visible sections=" + visibleSections

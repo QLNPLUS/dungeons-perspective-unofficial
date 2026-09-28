@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Lets Entity Culling keep the displaced camera's protected entities renderable. */
+/** Protects the displaced camera's nearby entities from Entity Culling's occlusion test. */
 @Pseudo
 @Mixin(targets = "dev.tr7zw.entityculling.NMSCullingHelper", remap = false)
 public abstract class EntityCullingHelperMixin {

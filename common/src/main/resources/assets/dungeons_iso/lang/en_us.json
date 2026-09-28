@@ -100,7 +100,7 @@
   "dungeons_iso.firsttime.disable": "Disable",
   "dungeons_iso.config.group.roomculling": "Room Culling",
   "dungeons_iso.config.group.shapeculling": "Shape Culling",
-  "dungeons_iso.binds.cullDebug": "Culling debug report",
+  "dungeons_iso.binds.cullDebug": "Culling and entity performance debug overlay",
   "dungeons_iso.config.roomCulling.name": "Room roof culling",
   "dungeons_iso.config.roomCulling.description": "Detects the enclosed space you are standing in and removes its ceiling, including the walls and pillars that ceiling rests on.",
   "dungeons_iso.config.roomRadius.name": "Room radius",

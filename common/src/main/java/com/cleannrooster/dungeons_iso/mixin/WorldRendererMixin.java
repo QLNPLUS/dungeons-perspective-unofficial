@@ -1,6 +1,7 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.cullers.room.CullingBackdrop;
+import com.cleannrooster.dungeons_iso.util.EntityScreenCuller;
 import com.cleannrooster.dungeons_iso.util.EntityVisibility;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
@@ -8,6 +9,7 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +20,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Skips vanilla sky rendering while room culling supplies an opaque backdrop. */
 @Mixin(WorldRenderer.class)
 public abstract class WorldRendererMixin {
+
+    @Inject(method = "setupFrustum", at = @At("HEAD"))
+    private void dungeons$captureActualEntityFrustum(MatrixStack matrices, Vec3d cameraPosition,
+                                                    Matrix4f conservativeProjection, CallbackInfo ci) {
+        EntityScreenCuller.capture(matrices, cameraPosition);
+    }
 
     /**
      * The vanilla entity loop skips the focused player while the camera reports first person.

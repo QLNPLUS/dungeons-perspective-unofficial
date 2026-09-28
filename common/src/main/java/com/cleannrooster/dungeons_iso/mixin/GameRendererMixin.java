@@ -62,7 +62,10 @@ public abstract class GameRendererMixin {
 
     private Matrix4f orthoFrustumProjMat(Matrix4f projMat) {
         if (Config.GSON.instance().ortho && Mod.enabled) {
-            return Ortho.createOrthoMatrix(1.0F, 20.0F);
+            // Keep the culling frustum wider than the rendered projection. The displaced,
+            // orthographic camera and entity render bounds can otherwise disagree near the view
+            // edges and hide entities that still contribute pixels to the frame.
+            return Ortho.createOrthoMatrix(1.0F, Ortho.CULLING_MIN_SCALE);
         }
 
         return projMat;

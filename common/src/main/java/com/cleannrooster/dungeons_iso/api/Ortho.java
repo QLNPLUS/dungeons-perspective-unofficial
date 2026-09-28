@@ -6,6 +6,9 @@ import org.joml.Matrix4f;
 
 public class Ortho {
 
+    /** Extra orthographic extent used only for conservative visibility checks. */
+    public static final float CULLING_MIN_SCALE = 20.0F;
+
     public static Matrix4f createOrthoMatrix(float delta, float minScale) {
         MinecraftClient client = MinecraftClient.getInstance();
         float width = Math.max(minScale, Mod.getZoom()*2

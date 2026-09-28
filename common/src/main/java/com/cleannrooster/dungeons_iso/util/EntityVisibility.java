@@ -5,7 +5,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
 
-/** Keeps entities near the real player visible while the camera is displaced. */
+/** Identifies the near-player area that needs readiness protection with a displaced camera. */
 public final class EntityVisibility {
     private static final double PROTECTED_RADIUS = 48.0D;
     private static final double PROTECTED_RADIUS_SQUARED = PROTECTED_RADIUS * PROTECTED_RADIUS;

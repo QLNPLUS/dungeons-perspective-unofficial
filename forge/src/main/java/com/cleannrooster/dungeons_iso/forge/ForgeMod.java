@@ -14,16 +14,12 @@ import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 @Mod(ForgeMod.MOD_ID)
 public final class ForgeMod {
     public static final String MOD_ID = "dungeons_iso";
-    private static final Logger LOGGER = LogManager.getLogger("Dungeons Perspective");
 
     public ForgeMod() {
-        LOGGER.info("Dungeons Perspective 1.20.1-another Forge entrypoint constructed");
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
