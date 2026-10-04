@@ -900,10 +900,13 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         if (ModCompat.isModLoaded("midnightcontrols")) {
             isController = MidnightControlsCompat.isEnabled();
         }
-        if (client.currentScreen == null && ( Config.GSON.instance().force || (Config.GSON.instance().onStartup && !first) ||ClientInit.toggleBinding.wasPressed() || (
-                this.options.togglePerspectiveKey.isPressed() && Mod.enabled
-        ))) {
-            if (!Config.GSON.instance().force && Mod.enabled) {
+        Config config = Config.GSON.instance();
+        boolean inGame = client.currentScreen == null;
+        boolean toggleBindingPressed = inGame && ClientInit.toggleBinding.wasPressed();
+        boolean manualTogglePressed = !config.only_toggle && (toggleBindingPressed
+                || (this.options.togglePerspectiveKey.isPressed() && Mod.enabled));
+        if (inGame && (config.force || (config.onStartup && !first) || manualTogglePressed)) {
+            if (!config.force && Mod.enabled) {
                 Mod.enabled = false;
 
                 options.setPerspective(Mod.lastPerspective);

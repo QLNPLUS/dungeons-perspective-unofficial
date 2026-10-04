@@ -68,8 +68,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
         @Inject(method = "wasPressed", at = @At("RETURN"), cancellable = true)
     
         public void wasPressedXIV(CallbackInfoReturnable<Boolean> cir) {
-    
-             if (((KeyBinding) (Object) this).equals(MinecraftClient.getInstance().options.useKey) && Mod.enabled && Config.GSON.instance().isClickToMove()) {
+            if (((KeyBinding) (Object) this).equals(MinecraftClient.getInstance().options.togglePerspectiveKey)
+                    && Mod.enabled && Config.GSON.instance().only_toggle) {
+                cir.setReturnValue(false);
+                return;
+            }
+
+            if (((KeyBinding) (Object) this).equals(MinecraftClient.getInstance().options.useKey) && Mod.enabled && Config.GSON.instance().isClickToMove()) {
     
                 if (ClientInit.interact.wasPressed() ){
                     cir.setReturnValue(true);

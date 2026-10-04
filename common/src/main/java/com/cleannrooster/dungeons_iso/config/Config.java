@@ -15,6 +15,8 @@ public class Config {
     public boolean controllerMode =  false;
     public boolean onStartup =  true;
     public boolean force =  false;
+    /** Restrict perspective activation/deactivation to the Java API instead of keyboard toggles. */
+    public boolean only_toggle = false;
     public boolean fogOfWar =  false;
     public boolean distanceFog =  true;
     public boolean renderDistanceCap =  true;
