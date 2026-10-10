@@ -208,6 +208,8 @@ public class Config {
      */
     public boolean joystickMovement =  true;
     public boolean turnToMouse =  true;
+    /** While camera-rotation input is active, face the player along the camera's horizontal yaw. */
+    public boolean rotatePlayerWithCamera = true;
     public boolean clipToSpace =  false;
     public boolean additionalMeleeAssistance =  false;
     public boolean contextualTargeting =  false;

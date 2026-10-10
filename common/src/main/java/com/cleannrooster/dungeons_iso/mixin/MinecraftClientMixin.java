@@ -438,12 +438,21 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             Mod.livingHeadYaw = client.player.getHeadYaw();
             Mod.livingBodyYaw = client.player.bodyYaw;
 
+            boolean cameraRotationInput = client.options.pickItemKey.isPressed()
+                    || ClientInit.moveCameraBinding.isPressed()
+                    || Mod.rotateToggle;
+            boolean followCameraYaw = Config.GSON.instance().rotatePlayerWithCamera
+                    && cameraRotationInput
+                    && !player.isFallFlying()
+                    && player.getVehicle() == null;
+
             if(Mod.targeted != null && !targeted.isInvisibleTo(client.player) && client.player.canSee(targeted)) {
                 EntityHitResult result = new EntityHitResult(targeted,targeted.getEyePos());
                 lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, result.getPos(),true);
 
-            }else
-                if (moveFacingRegime && client.player.input.getMovementInput().length() > 0.1) {
+            } else if (followCameraYaw) {
+                lookAtYaw(client.player, Mod.yaw);
+            } else if (moveFacingRegime && client.player.input.getMovementInput().length() > 0.1) {
                     if(Mod.targeted != null){
                         EntityHitResult result = new EntityHitResult(targeted,targeted.getEyePos());
                         lookAt(client.player, EntityAnchorArgumentType.EntityAnchor.EYES, result.getPos(),true);
@@ -748,6 +757,37 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
                 return;
             }
         }
+    }
+
+    /**
+     * Faces the camera's horizontal yaw without pitching the player's model toward the camera angle.
+     * Keep the previous rotation fields anchored so Minecraft's renderer interpolates through the
+     * shortest angle rather than spinning across the 0/360 boundary.
+     */
+    private void lookAtYaw(LivingEntity living, float yaw) {
+        float targetYaw = MathHelper.wrapDegrees(yaw);
+
+        Mod.livingPitch = living.getPitch();
+        Mod.livingBodyYaw = living.bodyYaw;
+        Mod.livingYaw = living.getYaw();
+        Mod.livingHeadYaw = living.getHeadYaw();
+
+        while (targetYaw - living.prevHeadYaw < -180.0F) {
+            living.prevHeadYaw -= 360.0F;
+        }
+        while (targetYaw - living.prevHeadYaw >= 180.0F) {
+            living.prevHeadYaw += 360.0F;
+        }
+        while (targetYaw - living.prevBodyYaw < -180.0F) {
+            living.prevBodyYaw -= 360.0F;
+        }
+        while (targetYaw - living.prevBodyYaw >= 180.0F) {
+            living.prevBodyYaw += 360.0F;
+        }
+
+        living.setHeadYaw(targetYaw);
+        living.setYaw(targetYaw);
+        living.bodyYaw = targetYaw;
     }
 
     private  void lookAt(LivingEntity living, EntityAnchorArgumentType.EntityAnchor anchorPoint, Vec3d target) {

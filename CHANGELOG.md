@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+
+- 中键拖动移动镜头时，角色会跟随镜头朝向；可通过 `rotatePlayerWithCamera` 配置关闭。
+
 ## 2.2.2
 
 - 新增 `only_toggle` 配置；开启后，F4/F5 不再切换地下城视角，状态仅可通过 Java/KubeJS API 控制。
