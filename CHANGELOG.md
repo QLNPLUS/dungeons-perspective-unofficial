@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.1
+
+- Added three vertical middle-mouse camera-drag modes: no effect, adjust camera distance, or adjust pitch. Horizontal rotation remains available in every mode.
+- Existing `XIV` settings migrate automatically to the corresponding distance or pitch mode.
+
 ## 2.3.0
 
 - 中键拖动移动镜头时，角色会跟随镜头朝向；可通过 `rotatePlayerWithCamera` 配置关闭。

@@ -38,7 +38,16 @@ public final class GsonConfigBackend<T> implements ConfigBackend<T> {
             try (Reader reader = Files.newBufferedReader(this.path)) {
                 com.google.gson.JsonElement root = com.google.gson.JsonParser.parseReader(reader);
                 if (root.isJsonObject()) {
-                    copyFields(root.getAsJsonObject(), this.instance);
+                    com.google.gson.JsonObject values = root.getAsJsonObject();
+                    boolean migrated = migrateLegacyXiv(values);
+                    copyFields(values, this.instance);
+                    if (migrated) {
+                        try (Writer writer = Files.newBufferedWriter(this.path)) {
+                            GSON.toJson(values, writer);
+                        } catch (IOException ignored) {
+                            // Keep the migrated in-memory setting even if the file is read-only.
+                        }
+                    }
                 }
             } catch (Exception ignored) {
                 // A corrupt or half-written file leaves the defaults standing.
@@ -58,6 +67,25 @@ public final class GsonConfigBackend<T> implements ConfigBackend<T> {
             }
         } catch (IOException ignored) {
         }
+    }
+
+    private boolean migrateLegacyXiv(com.google.gson.JsonObject values) {
+        com.google.gson.JsonElement legacyValue = values.get("XIV");
+        if (legacyValue == null) {
+            return false;
+        }
+
+        if (values.has("middleDragVerticalMode")) {
+            values.remove("XIV");
+            return true;
+        }
+
+        if (legacyValue.isJsonPrimitive() && legacyValue.getAsJsonPrimitive().isBoolean()) {
+            values.addProperty("middleDragVerticalMode", legacyValue.getAsBoolean() ? "PITCH" : "DISTANCE");
+            values.remove("XIV");
+            return true;
+        }
+        return false;
     }
 
     private void copyFields(com.google.gson.JsonObject values, T to) {

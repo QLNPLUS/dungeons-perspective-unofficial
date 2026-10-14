@@ -73,7 +73,7 @@ public abstract class CameraMixin implements CameraAccessor {
             cancellable = true
     )
     public void getPitch45(CallbackInfoReturnable<Float> ci) {
-        if(Mod.enabled && !Config.GSON.instance().XIV) {
+        if (Mod.enabled && !Config.GSON.instance().usesPitchForMiddleDrag()) {
             ci.setReturnValue( (float)  45);
         }
     }
@@ -219,8 +219,8 @@ public abstract class CameraMixin implements CameraAccessor {
 
 
             Mod.yaw = this.yaw;
-            if(!Config.GSON.instance().XIV){
-            Mod.pitch =  45;
+            if (!Config.GSON.instance().usesPitchForMiddleDrag()) {
+                Mod.pitch = 45;
             }
             ClientPlayerEntity f = (MinecraftClient.getInstance().player);
 

@@ -3,7 +3,15 @@ package com.cleannrooster.dungeons_iso.config;
 public class Config {
     /** Settings are loaded from and saved to {@code config/dungeons_iso_v5.json}. */
     public static final ConfigHolder<Config> GSON = ConfigHolder.create(new Config());
-    public boolean XIV =  false;
+
+    public enum MiddleDragVerticalMode {
+        NONE,
+        DISTANCE,
+        PITCH
+    }
+
+    /** Vertical action while dragging the camera; horizontal rotation remains active in every mode. */
+    public MiddleDragVerticalMode middleDragVerticalMode = MiddleDragVerticalMode.DISTANCE;
 
     /**
      * "Controller mode" master toggle. When on, it forces a controller/one-handed-friendly preset,
@@ -226,6 +234,14 @@ public class Config {
     public boolean frustumCulling = true;
     public boolean showFirstTimeGui = true;
     public float soundListenerBias = 0.66F;
+
+    public MiddleDragVerticalMode getMiddleDragVerticalMode() {
+        return middleDragVerticalMode == null ? MiddleDragVerticalMode.DISTANCE : middleDragVerticalMode;
+    }
+
+    public boolean usesPitchForMiddleDrag() {
+        return getMiddleDragVerticalMode() == MiddleDragVerticalMode.PITCH;
+    }
 
     // --- Effective accessors -----------------------------------------------------------------
     // Read these (not the raw fields) at behavior sites so "Controller mode" can override them.

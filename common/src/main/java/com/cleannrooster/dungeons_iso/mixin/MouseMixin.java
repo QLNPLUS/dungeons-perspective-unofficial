@@ -242,13 +242,17 @@ public class MouseMixin implements MouseAccessor {
                 float yaw1 = (float) (Mod.yaw + i / 8.0D);
                 float zoom = (float) (j / 8.0D) / 45F;
                 Mod.yaw = yaw1;
-                if (!Config.GSON.instance().XIV) {
+                Config.MiddleDragVerticalMode verticalMode = Config.GSON.instance().getMiddleDragVerticalMode();
+                if (verticalMode != Config.MiddleDragVerticalMode.PITCH) {
                     Mod.pitch = 45;
-                    Mod.zoom += zoom;
-                    Mod.zoom = net.minecraft.util.math.MathHelper.clamp(Mod.zoom, 1F, 10F);
-                } else {
-                    Mod.pitch = Mod.pitch + zoom * 45F;
-                    Mod.pitch = MathHelper.clamp(Mod.pitch, 15F, 90F);
+                }
+                switch (verticalMode) {
+                    case NONE -> {
+                        // Vertical drag intentionally has no effect.
+                    }
+                    case DISTANCE -> Mod.zoom = net.minecraft.util.math.MathHelper.clamp(
+                            Mod.zoom + zoom, 1F, 10F);
+                    case PITCH -> Mod.pitch = MathHelper.clamp(Mod.pitch + zoom * 45F, 15F, 90F);
                 }
 
             } else {
