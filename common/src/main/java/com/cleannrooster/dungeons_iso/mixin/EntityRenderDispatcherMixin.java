@@ -1,6 +1,7 @@
 package com.cleannrooster.dungeons_iso.mixin;
 
 import com.cleannrooster.dungeons_iso.api.cullers.room.CullDebug;
+import com.cleannrooster.dungeons_iso.compat.TaczCompat;
 import com.cleannrooster.dungeons_iso.mod.Mod;
 import com.cleannrooster.dungeons_iso.util.EntityScreenCuller;
 import net.minecraft.client.MinecraftClient;
@@ -56,6 +57,33 @@ public abstract class EntityRenderDispatcherMixin {
         // against the supplied frustum. Use whichever origin is closer for the distance check;
         // keep the actual camera frustum unchanged so off-screen entities are still culled.
         return renderer.shouldRender(entity, frustum, distanceX, distanceY, distanceZ);
+    }
+
+    /**
+     * Keeps TACZ kinetic bullets on the render path.
+     *
+     * <p>A bullet is a point-sized projectile that is only visible through its tracer, which is a
+     * short segment trailing behind it. Judging it by its own bounding box against the frustum
+     * rejects the whole tracer whenever the box drifts off screen, so the tracer vanishes on some
+     * firing directions while the bullet is still flying through the view.
+     *
+     * <p>Measured on 2026-10-19: without this hook bullets dispatched at 16.07-62.44 blocks were
+     * dropped, and tracer rendering recovered once the check was bypassed.
+     *
+     * <p>A {@code HEAD} injection (not {@code RETURN}) so the answer is set before the method body
+     * runs and supersedes culling mods that answer the same call at its head.
+     */
+    @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
+    private <E extends Entity> void dungeons$keepTaczBulletsRenderable(
+            E entity,
+            Frustum frustum,
+            double cameraX,
+            double cameraY,
+            double cameraZ,
+            CallbackInfoReturnable<Boolean> cir) {
+        if (Mod.enabled && TaczCompat.isKineticBullet(entity)) {
+            cir.setReturnValue(true);
+        }
     }
 
     @Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)

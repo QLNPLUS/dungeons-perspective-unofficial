@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.2
+
+- 修复 TACZ 弹道曳光在透视镜头下拉近后按射击方向消失的问题。子弹是点状抛射物，可见部分来自其身后的短尾迹；原逻辑按子弹包围盒做视锥剔除，包围盒一旦移出视锥，整条尾迹便停止绘制。现在透视视角启用期间，TACZ 动能子弹始终保留在渲染路径上。
+- 未安装 TACZ 时不产生任何影响：兼容层按类名探测，无硬依赖。
+
 ## 2.3.1
 
 - Added three vertical middle-mouse camera-drag modes: no effect, adjust camera distance, or adjust pitch. Horizontal rotation remains available in every mode.
