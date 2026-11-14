@@ -440,12 +440,19 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             // right after switching into the perspective), leaving them stale makes the renderer
             // lerp stale→current each tick → the model jitters until you move. lookAt() overwrites
             // these with the same current values when it runs, so this is a no-op in that case.
-            if (!Mod.cameraYielded()) {
-                Mod.livingYaw = client.player.getYaw();
-                Mod.livingPitch = client.player.getPitch();
-                Mod.livingHeadYaw = client.player.getHeadYaw();
-                Mod.livingBodyYaw = client.player.bodyYaw;
-            }
+            // Re-seed every tick, including while a partner mod owns the view.
+            //
+            // These are this mod's copy of the player's rotation, and the facing code below uses them
+            // as the "from" pose when it rotates the body. Leaving them frozen for the whole hand-over
+            // meant that the first facing update after the hand-back interpolated from a rotation the
+            // player no longer had — the model swung round to face backwards and then forward again,
+            // once per hand-back. Tracking the live value costs four reads and removes the jump; while
+            // a partner mod drives, its own scene rotation is what gets recorded, which is precisely
+            // the pose the return has to start from.
+            Mod.livingYaw = client.player.getYaw();
+            Mod.livingPitch = client.player.getPitch();
+            Mod.livingHeadYaw = client.player.getHeadYaw();
+            Mod.livingBodyYaw = client.player.bodyYaw;
 
             boolean cameraRotationInput = client.options.pickItemKey.isPressed()
                     || ClientInit.moveCameraBinding.isPressed()
@@ -1283,11 +1290,14 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
             }
             // client.player.prevYaw = (livingYaw);
+            // Left alone while a partner mod owns the view.
+            //
+            // The renderer interpolates prev -> current, and Cinematic Interactions relies on that:
+            // it follows the body between ticks with rotLerp(partialTick, yRotO, getYRot). Writing
+            // prev = current here flattens that interpolation into tick-by-tick steps, which is the
+            // judder it reported. Its own ticks maintain these fields correctly anyway, so there is
+            // nothing to fix up — this mod's copy of them is simply not authoritative right now.
             if (!Mod.cameraYielded()) {
-                // Written from this mod's animation state. While the other mod owns the view it
-                // owns this state too, and overwriting the previous-tick rotations here makes the
-                // renderer interpolate from this mod's stale pose to the other mod's live one
-                // every tick — the shudder that ramps with their animation.
                 client.player.prevPitch = (livingPitch);
                 client.player.prevHeadYaw = (livingHeadYaw);
                 client.player.prevBodyYaw = (livingBodyYaw);
