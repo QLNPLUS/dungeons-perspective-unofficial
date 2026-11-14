@@ -20,7 +20,10 @@ public final class EntityScreenCuller {
     /** Captures the projection currently used to draw the screen before the world frustum is widened. */
     public static void capture(MatrixStack matrices, Vec3d cameraPosition) {
         screenFrustum = null;
-        if (!Mod.enabled || !Config.GSON.instance().ortho) {
+        if (!Mod.enabled || Mod.cameraYielded() || !Config.GSON.instance().ortho) {
+            // With the camera yielded the frame is drawn with a perspective projection, so a
+            // "screen frustum" captured here would reject entities the orthographic pass never
+            // drew anyway. Leave it null so the culler stays off.
             return;
         }
 

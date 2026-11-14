@@ -231,6 +231,19 @@ public class Config {
     public float zNearFactor = 1F;
     public boolean ortho = false;
     public boolean clickToMove = false;
+    /**
+     * Ease the camera from the pose a partner mod leaves it in to this mod's own pose.
+     *
+     * <p>Spatial GUI and Cinematic Interactions both finish by releasing the view from a pose of
+     * their own — vanilla third-person distance, their own scene angle. Without this, the frame
+     * after the hand-back already shows this mod's own framing, so entering or leaving their
+     * screens ends in a jump. With it, position and angle travel together across one window and
+     * the change reads as a single move.
+     *
+     * <p>Off restores the immediate hand-back: the dungeon view appears at once, with no travel
+     * time. Useful if the easing feels slower than you want.
+     */
+    public boolean smoothCameraHandback = true;
     public boolean frustumCulling = true;
     public boolean showFirstTimeGui = true;
     public float soundListenerBias = 0.66F;

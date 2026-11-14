@@ -98,8 +98,12 @@ public class MouseMixin implements MouseAccessor {
                 cursorLocked = true;
 
                 if (Mod.enabled) {
-                    // Merely hide the cursor instead of "disabling" it
-                    InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_NORMAL, x, y);
+                    // Merely hide the cursor instead of "disabling" it. While another mod owns the
+                    // camera (a 3D inventory, a workstation scene) that mod decides the grab, so
+                    // leave the cursor parameters to it and keep the rest of vanilla's lock.
+                    if (!Mod.cameraYielded()) {
+                        InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_NORMAL, x, y);
+                    }
                 } else {
                     InputUtil.setCursorParameters(client.getWindow().getHandle(), GLFW.GLFW_CURSOR_DISABLED, x, y);
 
@@ -230,7 +234,7 @@ public class MouseMixin implements MouseAccessor {
         float tickDelta = com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta();
         Entity cameraEntity = client.cameraEntity;
 
-        if (Mod.enabled && cameraEntity != null && client.player != null) {
+        if (Mod.enabled && !Mod.cameraYielded() && cameraEntity != null && client.player != null) {
             if (client.options.pickItemKey.isPressed() || ClientInit.moveCameraBinding.isPressed() || Mod.rotateToggle) {
                 if (lastX == null || lastY == null) {
                     InputUtil.setCursorParameters(client.getWindow().getHandle(), InputUtil.GLFW_CURSOR_DISABLED,

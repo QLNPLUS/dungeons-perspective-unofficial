@@ -73,7 +73,7 @@ public abstract class CameraMixin implements CameraAccessor {
             cancellable = true
     )
     public void getPitch45(CallbackInfoReturnable<Float> ci) {
-        if (Mod.enabled && !Config.GSON.instance().usesPitchForMiddleDrag()) {
+        if (Mod.enabled && !Mod.cameraYielded() && !Config.GSON.instance().usesPitchForMiddleDrag()) {
             ci.setReturnValue( (float)  45);
         }
     }
@@ -87,7 +87,9 @@ public abstract class CameraMixin implements CameraAccessor {
             index = 0
     )
     private float setCameraYaw(float yaw) {
-        return Mod.enabled ? Mod.yaw : yaw;
+        // While another mod holds the view this returns vanilla's own yaw, so the hand-back
+        // blend is skipped entirely; it only eases frames this mod is actually drawing.
+        return Mod.enabled && !Mod.cameraYielded() ? Mod.blendResumeYaw(Mod.yaw) : yaw;
     }
 
     @ModifyArg(
@@ -95,6 +97,11 @@ public abstract class CameraMixin implements CameraAccessor {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(D)D", ordinal = 0)
     )
     private double modifyCameraDistance(double distance) {
+        if (Mod.cameraYielded()) {
+            // The other mod owns the view; leave vanilla's distance and skip the zoom bookkeeping
+            // that would otherwise drive this mod's culling from a camera it no longer controls.
+            return distance;
+        }
         if (Mod.enabled && focusedEntity != null) {
             if(ClientInit.isoBinding.wasPressed()){
                 this.setRotation((float) (Math.ceil(Mod.yaw / 90) * 90 - 45),  45);
@@ -111,7 +118,10 @@ public abstract class CameraMixin implements CameraAccessor {
 
                 }
                 else{
-                    this.setRotation(Mod.yaw,Mod.pitch);
+                    // Not the raw target: this runs after the ordinal-0 setRotation that the
+                    // hand-back blend already eased, so writing the unblended angle here discarded
+                    // that ease every frame and the view snapped to the dungeon angle.
+                    this.setRotation(Mod.blendResumeYaw(Mod.yaw), Mod.blendResumePitch(Mod.pitch));
 
                 }
 
@@ -179,7 +189,10 @@ public abstract class CameraMixin implements CameraAccessor {
             frustrumZoom = net.minecraft.util.math.MathHelper.clamp(frustrumZoom,0,20);
 
             zoomMetric = (float) distance;
-            return distance * getZoom();
+            double pulledBack = distance * getZoom();
+            // Eased in the same window as the angle (see Mod#blendResumeYaw), so the camera travels
+            // back out along one arc instead of jumping to the dungeon distance and then turning.
+            return Mod.blendResumeDistance(distance, pulledBack);
 
 
 
@@ -193,7 +206,7 @@ public abstract class CameraMixin implements CameraAccessor {
             index = 1
     )
     private float setCameraPitch(float pitch) {
-        return Mod.enabled ? Mod.pitch : pitch;
+        return Mod.enabled && !Mod.cameraYielded() ? Mod.blendResumePitch(Mod.pitch) : pitch;
     }
     @Inject(
             method = "update",
@@ -212,13 +225,18 @@ public abstract class CameraMixin implements CameraAccessor {
     )
     private void clipToSpaceXIV(double a, CallbackInfoReturnable<Double> callbackInfoReturnable) {
 
-        if (MinecraftClient.getInstance().gameRenderer.getCamera() != null && Mod.enabled ) {
+        if (MinecraftClient.getInstance().gameRenderer.getCamera() != null && Mod.enabled && !Mod.cameraYielded()) {
 
                 callbackInfoReturnable.setReturnValue(a);
 
 
 
-            Mod.yaw = this.yaw;
+            // While the hand-back is running, this.yaw holds a blended intermediate, not the
+            // settled angle. Adopting it would move the blend's own target every frame — the
+            // camera would creep towards the dungeon angle instead of arriving at it.
+            if (!Mod.isResuming()) {
+                Mod.yaw = this.yaw;
+            }
             if (!Config.GSON.instance().usesPitchForMiddleDrag()) {
                 Mod.pitch = 45;
             }

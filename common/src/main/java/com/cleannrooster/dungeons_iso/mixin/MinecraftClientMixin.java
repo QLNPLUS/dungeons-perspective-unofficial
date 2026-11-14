@@ -151,6 +151,13 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
     @Inject(method = "render", at = @At("HEAD"))
     private void dungeonsIsoDebugRenderStart(boolean tick, CallbackInfo ci) {
         CullDebug.frameStart();
+
+        // Refreshed here, before any camera or projection work in this frame, so every guard below
+        // reads the same answer. Spatial GUI and Cinematic Interactions both write Camera.setup at
+        // its TAIL, after this mod's Camera.update injections have run, so the frame has to yield
+        // rather than race. Culling is untouched: it removes blocks between camera and player and
+        // stays valid under any camera the other mod places.
+        com.cleannrooster.dungeons_iso.compat.ExternalCameraCompat.captureFrame();
     }
 
     @Inject(method = "render", at = @At("RETURN"))
@@ -433,10 +440,12 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             // right after switching into the perspective), leaving them stale makes the renderer
             // lerp stale→current each tick → the model jitters until you move. lookAt() overwrites
             // these with the same current values when it runs, so this is a no-op in that case.
-            Mod.livingYaw = client.player.getYaw();
-            Mod.livingPitch = client.player.getPitch();
-            Mod.livingHeadYaw = client.player.getHeadYaw();
-            Mod.livingBodyYaw = client.player.bodyYaw;
+            if (!Mod.cameraYielded()) {
+                Mod.livingYaw = client.player.getYaw();
+                Mod.livingPitch = client.player.getPitch();
+                Mod.livingHeadYaw = client.player.getHeadYaw();
+                Mod.livingBodyYaw = client.player.bodyYaw;
+            }
 
             boolean cameraRotationInput = client.options.pickItemKey.isPressed()
                     || ClientInit.moveCameraBinding.isPressed()
@@ -765,6 +774,9 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
      * shortest angle rather than spinning across the 0/360 boundary.
      */
     private void lookAtYaw(LivingEntity living, float yaw) {
+        if (Mod.cameraYielded()) {
+            return;
+        }
         float targetYaw = MathHelper.wrapDegrees(yaw);
 
         Mod.livingPitch = living.getPitch();
@@ -796,6 +808,13 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
 
     private  void lookAt(LivingEntity living, EntityAnchorArgumentType.EntityAnchor anchorPoint, Vec3d target, boolean bool) {
+        if (Mod.cameraYielded()) {
+            // The other mod owns the view, and it turns the player's body itself (Cinematic
+            // Interactions rotates the body once a tick and follows it between ticks). Steering
+            // the same rotation here as well puts two writers on one field: the body snaps to
+            // this mod's aim target, the other mod snaps it back, and the model shudders.
+            return;
+        }
         Vec3d vec3d = anchorPoint.positionAt(living);
         double d = target.x - vec3d.x;
         double e = target.y - vec3d.y;
@@ -1264,9 +1283,15 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
 
             }
             // client.player.prevYaw = (livingYaw);
-            client.player.prevPitch = (livingPitch);
-            client.player.prevHeadYaw = (livingHeadYaw);
-            client.player.prevBodyYaw = (livingBodyYaw);
+            if (!Mod.cameraYielded()) {
+                // Written from this mod's animation state. While the other mod owns the view it
+                // owns this state too, and overwriting the previous-tick rotations here makes the
+                // renderer interpolate from this mod's stale pose to the other mod's live one
+                // every tick — the shudder that ramps with their animation.
+                client.player.prevPitch = (livingPitch);
+                client.player.prevHeadYaw = (livingHeadYaw);
+                client.player.prevBodyYaw = (livingBodyYaw);
+            }
         }
         if(pickCooldown <= 0){
             targeted = null;

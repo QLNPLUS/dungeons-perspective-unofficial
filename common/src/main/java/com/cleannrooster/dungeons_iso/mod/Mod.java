@@ -13,6 +13,7 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Vector2f;
@@ -97,6 +98,137 @@ public class Mod {
     public static float zoom = 5.0F;
     /** Published for client integrations such as KubeJS; transitions still run on the client thread. */
     public static volatile boolean enabled = false;
+
+    /**
+     * True while another client mod owns the camera (Spatial GUI's 3D screens, Cinematic
+     * Interactions' workstation scenes). Refreshed once per frame by
+     * {@code MinecraftClientMixin.dungeons$refreshExternalCamera}. While it is set, this mod stops
+     * writing camera position, rotation, projection and crosshair targeting — those all describe a
+     * view that the other mod is already placing — but keeps culling terrain, which only ever
+     * removes blocks between the camera and the player.
+     */
+    public static volatile boolean externalCamera = false;
+
+    /** Which mod owns the camera, for diagnostics; empty when this mod still does. */
+    public static volatile String externalCameraOwner = "";
+
+    /**
+     * The single guard for every site that writes camera position, rotation or projection. When
+     * another mod is placing the view, this mod must not touch it: its own writes run earlier in
+     * the frame ({@code Camera.update}) and would be overwritten anyway, and writing again here
+     * only produces the jump between two poses that the compatibility report described.
+     */
+    public static boolean cameraYielded() {
+        return enabled && externalCamera;
+    }
+
+    /**
+     * How long the presentation blend takes when the camera comes back.
+     *
+     * <p>Position and angle ease together, over one window, from the pose the partner mod left the
+     * camera at to this mod's own pose. Easing only the angle left the position to snap, which
+     * showed as the camera arriving at the dungeon framing and only then swivelling round to the
+     * dungeon angle — two movements where there should be one. Interpolating the two together
+     * moves the camera along a single arc, so entering or leaving a partner screen reads as one
+     * continuous change with no intermediate pose held on screen.
+     *
+     * <p>The window has to outlast the partner mod's own hand-back: Spatial GUI's close animation
+     * finishes and *then* releases the view, so anything shorter would start after its pose had
+     * already been shown. Cinematic Interactions ramps its own mix weight down over about a second
+     * and its report was fixed by the same blend.
+     */
+    public static final long RESUME_BLEND_MILLIS = 420L;
+
+    private static float resumeFromYaw;
+    private static float resumeFromPitch;
+    private static net.minecraft.util.math.Vec3d resumeFromPos;
+    private static long resumeStartMillis;
+    private static boolean resuming;
+
+    /**
+     * Starts the hand-back blend from the rotation the other mod left the camera at.
+     *
+     * <p>Only the <em>presentation</em> is interpolated. {@link #yaw} and {@link #pitch} stay
+     * authoritative and jump immediately, because movement, facing and hit targeting are all
+     * derived from them and a eased camera angle with an un-eased movement direction would send
+     * the player somewhere other than where the view points.
+     */
+    public static void beginCameraResume(float cameFromYaw, float cameFromPitch,
+                                         net.minecraft.util.math.Vec3d cameFromPos) {
+        if (!Config.GSON.instance().smoothCameraHandback) {
+            resuming = false;
+            return;
+        }
+        resumeFromYaw = cameFromYaw;
+        resumeFromPitch = cameFromPitch;
+        resumeFromPos = cameFromPos;
+        resumeStartMillis = System.currentTimeMillis();
+        resuming = true;
+    }
+
+    /**
+     * Where the partner mod left the camera, or null when no hand-back is running.
+     *
+     * <p>Read only, not consumed: position and angle are both interpolated away from it, so every
+     * frame of the window needs the same starting point.
+     */
+    public static net.minecraft.util.math.Vec3d cameraResumePos() {
+        return resuming ? resumeFromPos : null;
+    }
+
+    /** True while the hand-back blend is still running. */
+    public static boolean isResuming() {
+        return resuming && resumeProgress() < 1.0F;
+    }
+
+    /** Eased camera yaw for this frame, or the plain target once the blend window has passed. */
+    public static float blendResumeYaw(float target) {
+        float progress = resumeProgress();
+        if (!Config.GSON.instance().smoothCameraHandback) {
+            return target;
+        }
+        if (progress >= 1.0F) {
+            return target;
+        }
+        // Shortest arc. A plain lerp between, say, 170 and -170 swings the long way round and turns
+        // a 20-degree hand-back into a 340-degree spin.
+        float delta = MathHelper.wrapDegrees(target - resumeFromYaw);
+        return resumeFromYaw + delta * progress;
+    }
+
+    /** Eased camera pitch for this frame, or the plain target once the blend window has passed. */
+    public static float blendResumePitch(float target) {
+        float progress = resumeProgress();
+        return progress >= 1.0F ? target : MathHelper.lerp(progress, resumeFromPitch, target);
+    }
+
+    /**
+     * Eased distance of the camera from its pivot, in the same window as the angle.
+     *
+     * <p>The camera is placed at {@code pivot + direction * (distance * zoom)}, so the distance is
+     * what actually decides how far back it sits. Spatial GUI hands the view back at vanilla's
+     * third-person distance — a few blocks — while this mod's is much longer, so without easing
+     * this channel the camera arrived at the right angle but from the wrong place: first a jump
+     * outwards, then a rotation. Moving both together is what makes the handover one movement.
+     */
+    public static double blendResumeDistance(double from, double to) {
+        float progress = resumeProgress();
+        return progress >= 1.0F ? to : MathHelper.lerp(progress, from, to);
+    }
+
+    private static float resumeProgress() {
+        if (!resuming) {
+            return 1.0F;
+        }
+        float linear = MathHelper.clamp(
+                (System.currentTimeMillis() - resumeStartMillis) / (float) RESUME_BLEND_MILLIS, 0.0F, 1.0F);
+        if (linear >= 1.0F) {
+            resuming = false;
+            return 1.0F;
+        }
+        // Sine ease-in-out, matching what both partner mods use for their own camera moves.
+        return 0.5F - 0.5F * (float) Math.cos(Math.PI * linear);
+    }
     public static Perspective lastPerspective;
     public static HitResult crosshairTarget;
     public static Entity pickedTarget;

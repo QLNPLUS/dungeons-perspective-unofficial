@@ -47,7 +47,7 @@ public abstract class GameRendererMixin {
     @Inject(method = "shouldRenderBlockOutline", at = @At("HEAD"),cancellable = true)
 
     private void shouldRenderBlockOutlineXIV(CallbackInfoReturnable<Boolean>cir) {
-        if (Mod.enabled && Mod.crosshairTarget instanceof BlockHitResult result) {
+        if (Mod.enabled && !Mod.cameraYielded() && Mod.crosshairTarget instanceof BlockHitResult result) {
             cir.setReturnValue(true);
         }
     }
@@ -61,7 +61,7 @@ public abstract class GameRendererMixin {
     )
 
     private Matrix4f orthoFrustumProjMat(Matrix4f projMat) {
-        if (Config.GSON.instance().ortho && Mod.enabled) {
+        if (Config.GSON.instance().ortho && Mod.enabled && !Mod.cameraYielded()) {
             // Keep the culling frustum wider than the rendered projection. The displaced,
             // orthographic camera and entity render bounds can otherwise disagree near the view
             // edges and hide entities that still contribute pixels to the frame.
@@ -75,7 +75,7 @@ public abstract class GameRendererMixin {
     @Inject(method = "getBasicProjectionMatrix", at = @At("HEAD"),cancellable = true)
 
     public void getBasicProjectionMatrixXIV(double fov, CallbackInfoReturnable<Matrix4f> cir) {
-        if(Mod.enabled && Config.GSON.instance().frustumCulling) {
+        if(Mod.enabled && !Mod.cameraYielded() && Config.GSON.instance().frustumCulling) {
             Matrix4f matrix4f = new Matrix4f();
             if (this.zoom != 1.0F) {
                 matrix4f.translate(this.zoomX, -this.zoomY, 0.0F);
@@ -132,7 +132,7 @@ public abstract class GameRendererMixin {
             index = 7
     )
     private Matrix4f orthoProjMat(Matrix4f projMat) {
-        if (Config.GSON.instance().ortho && Mod.enabled) {
+        if (Config.GSON.instance().ortho && Mod.enabled && !Mod.cameraYielded()) {
             Matrix4f mat = Ortho.createOrthoMatrix(com.cleannrooster.dungeons_iso.util.VanillaCompat.tickDelta(), 0.0F);
             RenderSystem.setProjectionMatrix(mat, VertexSorter.BY_Z);
             return mat;
@@ -164,7 +164,9 @@ public abstract class GameRendererMixin {
     @Inject(method = "updateTargetedEntity", at = @At("TAIL"))
     private void decoupleHitResultXIV(float tickDelta, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!Mod.enabled || client.player == null || client.world == null) {
+        if (!Mod.enabled || Mod.cameraYielded() || client.player == null || client.world == null) {
+            // While another mod owns the view its screens are hit-tested against its own projection;
+            // overwriting crosshairTarget with this mod's screen ray would break every click on it.
             return;
         }
         Vec3d playerEye = client.player.getEyePos();

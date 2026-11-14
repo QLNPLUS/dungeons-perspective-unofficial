@@ -78,23 +78,52 @@ public final class GhostRenderer {
      * entity. The stock entity-translucent layer writes ALL_MASK in 1.20.1, which would keep that
      * entity from passing the later depth test.
      */
-    private static final RenderLayer GHOST_LAYER = RenderLayer.of(
-            "dungeons_iso_ghost",
-            VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
-            VertexFormat.DrawMode.QUADS,
-            262_144,
-            true,
-            true,
-            RenderLayer.MultiPhaseParameters.builder()
-                    .texture(RenderPhase.BLOCK_ATLAS_TEXTURE)
-                    .program(RenderPhase.ENTITY_TRANSLUCENT_PROGRAM)
-                    .transparency(RenderPhase.TRANSLUCENT_TRANSPARENCY)
-                    .depthTest(RenderPhase.LEQUAL_DEPTH_TEST)
-                    .cull(RenderPhase.DISABLE_CULLING)
-                    .lightmap(RenderPhase.ENABLE_LIGHTMAP)
-                    .overlay(RenderPhase.ENABLE_OVERLAY_COLOR)
-                    .writeMaskState(RenderPhase.COLOR_MASK)
-                    .build(false));
+    /**
+     * Built on first use, never from the static initialiser.
+     *
+     * <p>{@code RenderPhase} keeps its state shards protected, and this jar ships no access
+     * transformer, so the first touch of a protected field throws {@link IllegalAccessError}.
+     * Doing that from {@code <clinit>} turned a cosmetic feature into a hard crash of the whole
+     * render thread: the class was poisoned for the session, and every later call — including
+     * ones the event handler wrapped in try/catch — failed with {@code NoClassDefFoundError}
+     * before any catch could run. Resolving the layer lazily keeps the failure inside
+     * {@link #renderInternal}, where it can disable ghosting and leave the world rendering intact.
+     */
+    private static RenderLayer ghostLayer;
+    /** Why ghosting is off for this session, or null while it has not failed. */
+    private static String ghostLayerFailure;
+
+    private static RenderLayer ghostLayer() {
+        if (ghostLayer != null || ghostLayerFailure != null) {
+            return ghostLayer;
+        }
+        try {
+            ghostLayer = RenderLayer.of(
+                    "dungeons_iso_ghost",
+                    VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
+                    VertexFormat.DrawMode.QUADS,
+                    262_144,
+                    true,
+                    true,
+                    RenderLayer.MultiPhaseParameters.builder()
+                            .texture(RenderPhase.BLOCK_ATLAS_TEXTURE)
+                            .program(RenderPhase.ENTITY_TRANSLUCENT_PROGRAM)
+                            .transparency(RenderPhase.TRANSLUCENT_TRANSPARENCY)
+                            .depthTest(RenderPhase.LEQUAL_DEPTH_TEST)
+                            .cull(RenderPhase.DISABLE_CULLING)
+                            .lightmap(RenderPhase.ENABLE_LIGHTMAP)
+                            .overlay(RenderPhase.ENABLE_OVERLAY_COLOR)
+                            .writeMaskState(RenderPhase.COLOR_MASK)
+                            .build(false));
+        } catch (Throwable built) {
+            // Access rules, shader state and render-layer internals all differ across versions and
+            // loaders. Ghost geometry is an optional visual, so losing it beats losing the frame.
+            ghostLayerFailure = built.toString();
+            LOGGER.warn("[dungeons_iso] ghost layer unavailable, ghosting disabled: {}", ghostLayerFailure);
+            return null;
+        }
+        return ghostLayer;
+    }
     /** Model quad lookup wants a Random; the value never matters for full blocks. */
     private static final Random RANDOM = Random.create();
     /** Reused for corner projection. Render thread only. */
@@ -164,6 +193,14 @@ public final class GhostRenderer {
             return;
         }
 
+        RenderLayer layer = ghostLayer();
+        if (layer == null) {
+            // The render layer could not be built on this runtime; ghostLayerFailure says why.
+            // Ghost geometry is cosmetic, so keep drawing the frame without it.
+            invalidate();
+            return;
+        }
+
         MinecraftClient client = MinecraftClient.getInstance();
         ClientWorld world = client.world;
         if (world == null || client.cameraEntity == null) {
@@ -229,7 +266,7 @@ public final class GhostRenderer {
         float focusY = SCREEN[1];
         lastVertexCount = vertexCount;
 
-        VertexConsumer consumer = buffers.getBuffer(GHOST_LAYER);
+        VertexConsumer consumer = buffers.getBuffer(layer);
 
         double offX = originX - cameraPos.x;
         double offY = originY - cameraPos.y;
@@ -353,7 +390,7 @@ public final class GhostRenderer {
 
         // This pass is called outside vanilla's entity draw loop, so submit this layer explicitly.
         // Otherwise the ghost vertices can remain buffered until a later frame or render target.
-        buffers.draw(GHOST_LAYER);
+        buffers.draw(layer);
         lastSubmittedVertexCount = submittedVertices;
     }
 
