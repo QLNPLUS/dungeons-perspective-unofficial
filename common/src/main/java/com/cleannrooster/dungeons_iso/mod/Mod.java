@@ -196,6 +196,47 @@ public class Mod {
         return resumeFromYaw + delta * progress;
     }
 
+    /**
+     * Ceiling, in degrees per tick, on how fast the player's body may turn just after a hand-back.
+     *
+     * <p>Spatial GUI finishes a close by pointing the player's body along its own camera, then
+     * releases. This mod's facing code then rotates the body back to its aim target — a step of
+     * well over a hundred degrees, applied in a single tick, which is why the model appeared to
+     * spin round to face its own back and then turn forward again.
+     *
+     * <p>Rate-limiting the turn is enough to fix that: the same rotation still happens, but over a
+     * dozen ticks, so it reads as the character turning rather than as a glitch. Only the animation
+     * rate is limited; the yaw itself still reaches the target and movement is unaffected.
+     */
+    private static final float MAX_BODY_TURN_PER_TICK = 18.0F;
+    private static final int BODY_TURN_TICKS = 14;
+    private static int bodyTurnTicksLeft;
+
+    /** Called when the view comes back, to start the turn limit. */
+    public static void beginBodyTurnLimit() {
+        bodyTurnTicksLeft = BODY_TURN_TICKS;
+    }
+
+    /**
+     * Narrows a body-rotation step if it is too large right after a hand-back.
+     *
+     * @param current the rotation the body has now
+     * @param target  the rotation the facing code wants
+     * @return the rotation to use this tick: the target, or a step towards it while the limit runs
+     */
+    public static float limitBodyTurn(float current, float target) {
+        if (bodyTurnTicksLeft <= 0) {
+            return target;
+        }
+        bodyTurnTicksLeft--;
+        float step = MathHelper.wrapDegrees(target - current);
+        if (Math.abs(step) <= MAX_BODY_TURN_PER_TICK) {
+            bodyTurnTicksLeft = 0;
+            return target;
+        }
+        return current + MathHelper.clamp(step, -MAX_BODY_TURN_PER_TICK, MAX_BODY_TURN_PER_TICK);
+    }
+
     /** Eased camera pitch for this frame, or the plain target once the blend window has passed. */
     public static float blendResumePitch(float target) {
         float progress = resumeProgress();

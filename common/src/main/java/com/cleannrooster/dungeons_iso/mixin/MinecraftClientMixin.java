@@ -804,6 +804,8 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
             living.prevBodyYaw += 360.0F;
         }
 
+        targetYaw = Mod.limitBodyTurn(living.getYaw(), targetYaw);
+
         living.setHeadYaw(targetYaw);
         living.setYaw(targetYaw);
         living.bodyYaw = targetYaw;
@@ -854,6 +856,11 @@ public abstract class MinecraftClientMixin implements MinecraftClientAccessor {
         while(headyaw - living.prevBodyYaw >= 180.0F) {
             living.prevBodyYaw += 360.0F;
         }
+
+        // The body may have been turned by the partner mod a moment ago (Spatial GUI points it along
+        // its own camera before releasing the view). Turning it straight back in one tick is what made
+        // the model appear to spin round; Mod#limitBodyTurn spreads it over a few ticks instead.
+        headyaw = Mod.limitBodyTurn(living.getYaw(), (float) headyaw);
 
         living.setHeadYaw((float) headyaw);
 

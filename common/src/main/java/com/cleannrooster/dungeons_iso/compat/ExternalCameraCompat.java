@@ -67,6 +67,7 @@ public final class ExternalCameraCompat {
             // other mod's last pose disappears and this mod's pulled-back pose appears on the
             // next frame, which reads as a cut rather than the end of their animation.
             Mod.beginCameraResume(currentCameraYaw(), currentCameraPitch(), currentCameraPosition());
+            Mod.beginBodyTurnLimit();
         }
         lastOwner = owner;
         return !owner.isEmpty();
